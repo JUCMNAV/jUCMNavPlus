@@ -164,7 +164,20 @@ public class MetadataEditorPage extends WizardPage {
     }
 
     protected void setSelectedObject(EObject defaultSelected, EObject ref) {
-        if(ref != null && (folder != null ? folder.getSelectionIndex() == 1 : false) && hasMetadata(ref))
+        // Disposal guard: setSelectedObject is reached transitively from
+        // GEFTabbedPropertySheetPage.commandStackChanged -> MetadataPropertySection.refresh
+        // -> setData -> here, which can fire AFTER the page's TabFolder is
+        // already disposed (e.g. user dragged an editpart, the resulting
+        // command-stack notification arrives while the Properties view is
+        // in the middle of switching contexts, or during an undo on a
+        // page that has been swapped out). Without this check
+        // TabFolder.getSelectionIndex() throws "Widget is disposed" and
+        // the post-mouseUp / post-undo event handling aborts. The pattern
+        // matches checkButtonStatus() above which already guards on
+        // metadataTable.isDisposed().
+        boolean folderTabIsOne = (folder != null && !folder.isDisposed())
+                && folder.getSelectionIndex() == 1;
+        if (ref != null && folderTabIsOne && hasMetadata(ref))
             this.defaultSelected = ref;
         else
             this.defaultSelected = defaultSelected;
