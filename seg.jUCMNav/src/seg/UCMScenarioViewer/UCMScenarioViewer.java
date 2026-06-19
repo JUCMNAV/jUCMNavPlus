@@ -738,7 +738,26 @@ public class UCMScenarioViewer extends GraphicalEditor {
 					// version in the repository)
 					final IFile newFile = ResourcesPlugin.getWorkspace()
 							.getRoot().getFile(delta.getFullPath());
-					Display display = getSite().getShell().getDisplay();
+					// Resource-change notifications can land while the editor's
+					// PartSite is mid-shutdown (the workbench window is already
+					// gone but the IResourceChangeListener hasn't been
+					// unregistered yet). getSite().getShell() then NPEs with
+					// "PartSite.getWorkbenchWindow() is null". Fall back to
+					// Display.getDefault() for the asyncExec -- if the
+					// workbench really is gone, the asyncExec is a no-op
+					// against the dead display; if it's still alive, it
+					// dispatches normally.
+					Display display = null;
+					try {
+						if (getSite() != null && getSite().getShell() != null
+								&& !getSite().getShell().isDisposed()) {
+							display = getSite().getShell().getDisplay();
+						}
+					} catch (Exception ignore) {
+						// PartSite throws on use-after-dispose; treat as null.
+					}
+					if (display == null) display = Display.getDefault();
+					if (display == null) return false; // workbench gone, nothing to do
 					display.asyncExec(new Runnable() {
 						public void run() {
 							setInput(new FileEditorInput(newFile));
