@@ -28,7 +28,7 @@ import urn.URNspec;
  * 2) An open file gets renamed or moved -> change the editor's input
  * accordingly
  * 
- * @author Gunnar Wagenknecht, Jean-François Roy
+ * @author Gunnar Wagenknecht, Jean-Franï¿½ois Roy
  */
 public class ResourceTracker implements IResourceChangeListener, IResourceDeltaVisitor {
 
@@ -80,6 +80,10 @@ public class ResourceTracker implements IResourceChangeListener, IResourceDeltaV
 			} else {
 				// else if it was moved or renamed
 				final IFile newFile = ResourcesPlugin.getWorkspace().getRoot().getFile(delta.getMovedToPath());
+				// The editor may already be tearing down when this resource delta is delivered
+				// (workspace move concurrent with editor close); getSite()/getShell() then NPEs.
+				if (editor.getSite() == null || editor.getSite().getShell() == null || editor.getSite().getShell().isDisposed())
+					return false;
 				Display display = editor.getSite().getShell().getDisplay();
 				display.asyncExec(new Runnable() {
 					public void run() {
@@ -102,6 +106,8 @@ public class ResourceTracker implements IResourceChangeListener, IResourceDeltaV
 					if (PlatformUI.getWorkbench().getActiveWorkbenchWindow() == null)
 						return false;
 					IWorkbenchPage page = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
+					if (page == null)
+						return false;
 					IEditorReference[] edref = page.getEditorReferences();
 					String filename = delta.getResource().getName();
 
@@ -114,6 +120,9 @@ public class ResourceTracker implements IResourceChangeListener, IResourceDeltaV
 						if (filename.equals(edref[i].getName())) {
 							numbereditor++;
 							if (numbereditor == 2) {
+								if (editor.getSite() == null || editor.getSite().getShell() == null
+										|| editor.getSite().getShell().isDisposed())
+									return false;
 								if (MessageDialog.openQuestion(editor.getSite().getShell(),
 										Messages.getString("ResourceTracker.MultipleEditorsTitle") + filename, //$NON-NLS-1$
 										Messages.getString("ResourceTracker.MultipleEditorsText") + filename //$NON-NLS-1$
