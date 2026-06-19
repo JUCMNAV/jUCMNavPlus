@@ -25,8 +25,10 @@ public class GeneralPreferencesActionDelegate implements IEditorActionDelegate {
         super();
         
         PreferencesPagesToBeShown = new String[]{
-			"seg.jUCMNav.views.preferences.GeneralPreferencePage", 
+			"seg.jUCMNav.views.preferences.GeneralPreferencePage",
 			"seg.jUCMNav.views.preferences.AutoLayoutPreferencePage",
+			"seg.jUCMNav.views.preferences.ScenarioTraversalPreferencePage",
+			"seg.jUCMNav.views.preferences.StrategyEvaluationPreferencePage",
 			"seg.jUCMNav.views.preferences.ScenarioExportPreferencePage",
 			"seg.jUCMNav.views.preferences.KPIMonitoringPreferencePage",
 			"seg.jUCMNav.views.preferences.ReportGeneratorPreferencePage",
