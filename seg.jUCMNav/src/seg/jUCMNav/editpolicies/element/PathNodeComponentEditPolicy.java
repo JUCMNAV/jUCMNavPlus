@@ -36,9 +36,32 @@ public class PathNodeComponentEditPolicy extends ComponentEditPolicy {
         java.util.Map registry;
 
         if (getHost().getViewer() instanceof TreeViewer) {
-            // we need an editpart registry with NodeConnectionEditParts
-            UCMNavMultiPageEditor editor = (UCMNavMultiPageEditor) PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage().getActiveEditor();
-            registry = editor.getCurrentPage().getGraphicalViewer().getEditPartRegistry();
+            // we need an editpart registry with NodeConnectionEditParts that
+            // the TreeViewer doesn't own. Reach out to the UCM multi-page
+            // editor for its graphical viewer registry. The chain
+            // workbench -> activeWindow -> activePage -> activeEditor can be
+            // null at any link (selection change firing while the active
+            // editor is closing, focus on a different non-UCM view, etc.);
+            // a null editor.getCurrentPage() also throws. If any link is
+            // missing OR the active editor isn't a UCMNavMultiPageEditor,
+            // fall back to the tree viewer's own registry rather than NPE.
+            // The fallback registry lacks NodeConnectionEditParts, so the
+            // resulting DeletePathNodeCommand may be a partial delete --
+            // acceptable for a transient selection-change refresh; the
+            // user's actual delete press goes through a full editor context.
+            UCMNavMultiPageEditor editor = null;
+            org.eclipse.ui.IWorkbenchWindow win = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
+            org.eclipse.ui.IWorkbenchPage page = (win != null) ? win.getActivePage() : null;
+            org.eclipse.ui.IEditorPart active = (page != null) ? page.getActiveEditor() : null;
+            if (active instanceof UCMNavMultiPageEditor) {
+                editor = (UCMNavMultiPageEditor) active;
+            }
+            if (editor != null && editor.getCurrentPage() != null
+                    && editor.getCurrentPage().getGraphicalViewer() != null) {
+                registry = editor.getCurrentPage().getGraphicalViewer().getEditPartRegistry();
+            } else {
+                registry = getHost().getViewer().getEditPartRegistry();
+            }
         } else
             registry = getHost().getViewer().getEditPartRegistry();
 
