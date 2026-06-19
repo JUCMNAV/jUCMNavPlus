@@ -109,6 +109,13 @@ public class GEFTabbedPropertySheetPage extends TabbedPropertySheetPage implemen
     }
 
     public void commandStackChanged(EventObject e) {
+        // The command stack we registered with (in addSectionToRefresh) is resolved via the
+        // active sub-editor; if the user switched the active UCM/GRL page before this page was
+        // disposed, dispose() removes the listener from a different stack and the original stack
+        // keeps notifying us after dispose() nulled our state. Guard against that race.
+        if (sectionsToRefresh == null || editor == null)
+            return;
+
         for (Iterator iterator = sectionsToRefresh.iterator(); iterator.hasNext();) {
             AbstractGEFPropertySection type = (AbstractGEFPropertySection) iterator.next();
             type.refresh();
