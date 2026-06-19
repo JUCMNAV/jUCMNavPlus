@@ -502,11 +502,36 @@ public class URNElementPropertySource extends EObjectPropertySource {
                 result = new URNElementPropertySource((EObject) result);
         } else if (getFeatureType(feature).getInstanceClass() == Condition.class) {
             if (result == null) {
-                URNspec urn;
-                if (getEditableValue() instanceof NodeConnection)
-                    urn = ((NodeConnection) getEditableValue()).getDiagram().getUrndefinition().getUrnspec();
-                else
-                    urn = ((PathNode) getEditableValue()).getDiagram().getUrndefinition().getUrnspec();
+                // Resolve the URNspec by checking the actual concrete type of
+                // getEditableValue(). The previous code's `else ((PathNode)
+                // getEditableValue())` cast crashed on
+                // ucm.scenario.ScenarioStartPoint -- which IS a valid
+                // selection (the Properties view shows it when the user
+                // clicks a start point reference inside a scenario tree)
+                // but ScenarioStartPoint is NOT a PathNode -- it owns a
+                // StartPoint via getStartPoint() instead. Same pattern as
+                // the Workload branch above (lines 491-494) which already
+                // handles StartPoint vs ScenarioStartPoint.
+                URNspec urn = null;
+                Object ev = getEditableValue();
+                if (ev instanceof NodeConnection)
+                    urn = ((NodeConnection) ev).getDiagram().getUrndefinition().getUrnspec();
+                else if (ev instanceof PathNode)
+                    urn = ((PathNode) ev).getDiagram().getUrndefinition().getUrnspec();
+                else if (ev instanceof ScenarioStartPoint) {
+                    StartPoint sp = ((ScenarioStartPoint) ev).getStartPoint();
+                    if (sp != null) urn = sp.getDiagram().getUrndefinition().getUrnspec();
+                } else if (ev instanceof ScenarioEndPoint) {
+                    EndPoint ep = ((ScenarioEndPoint) ev).getEndPoint();
+                    if (ep != null) urn = ep.getDiagram().getUrndefinition().getUrnspec();
+                }
+                if (urn == null) {
+                    // No usable URNspec context -- can't construct a
+                    // Condition. Return the original (possibly null) result
+                    // so the property sheet just shows an empty value
+                    // instead of crashing the selection event.
+                    return result;
+                }
 
                 result = ModelCreationFactory.getNewObject(urn, Condition.class);
 
