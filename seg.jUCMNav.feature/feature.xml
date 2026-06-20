@@ -4,12 +4,12 @@
      "includes" / "requires" the jUCMNav plug-in and pulls in its prerequisites
      (EMF, GEF, OCL) from the target platform.
 
-     Tycho will replace the qualifier in version "10.0.0.qualifier" with a build
+     Tycho will replace the qualifier in version "10.0.1.qualifier" with a build
      timestamp. Keep the plug-in's Bundle-Version in sync. -->
 <feature
     id="seg.jUCMNav.feature"
     label="jUCMNav (URN: UCM + GRL)"
-    version="10.0.0.qualifier"
+    version="10.0.1.qualifier"
     provider-name="jUCMNav project">
 
   <description url="https://github.com/JUCMNAV/projetseg-update">

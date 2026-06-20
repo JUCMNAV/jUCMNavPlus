@@ -13,8 +13,9 @@ Classic (diagram editors), and MDT/OCL (constraints).
 tests, and runs on Java 21 LTS + Eclipse 2026-03 (4.39). The full Phase A
 (compile-clean, Tycho build, p2 update site) and Phase B (QA bug hunt:
 SWT leaks, dispose races, thread-affinity issues, GEF generics fallout,
-JDK 21 API drift) are merged. Every push to `master` runs the 319-test
-JUnit suite under a headless Eclipse UI harness as a hard CI gate.
+JDK 21 API drift) are merged. Every push to `master` runs the 328-test
+JUnit suite under a headless Eclipse UI harness as a hard CI gate. The
+current release is **10.0.1**.
 
 The installable update site is published continuously to GitHub Pages at
 [`https://jucmnav.github.io/jUCMNavPlus/`](https://jucmnav.github.io/jUCMNavPlus/) —
@@ -45,7 +46,7 @@ trail, see [`git log master`](https://github.com/JUCMNAV/jUCMNavPlus/commits/mas
 | **CORE library** | The `ca.mcgill.sel.core` dependency is now vendored in-tree | Builds don't depend on an external university Maven host that could disappear; everything you need to compile and run is in this repo |
 | **EMF model** | The URN / UCM / GRL / FM model code was regenerated from the `.ecore` / `.genmodel` sources using current EMF tooling | Model loading, serialization, and validation run on supported APIs (no JDK-removed methods); future model changes can be regenerated cleanly instead of hand-patched |
 | **Distribution** | One-click p2 update site from GitHub Pages | Paste `https://jucmnav.github.io/jUCMNavPlus/` into Eclipse's Install New Software and you're done — automatic updates via Help → Check for Updates |
-| **Quality gate** | 319 JUnit tests under a headless Eclipse harness, gating every push | Regressions get caught in CI instead of by you mid-presentation |
+| **Quality gate** | 328 JUnit tests under a headless Eclipse harness, gating every push | Regressions get caught in CI instead of by you mid-presentation |
 | **CI / artifacts** | GitHub Actions builds + tests + publishes the update site on every push to `master`; downloadable site artifact on every PR build | You can install a feature-branch / PR build locally before it's merged or published — no waiting on a release cycle |
 | **Project home** | Repo lives in the `JUCMNAV/` organization for continuity and multi-maintainer support | Install URL is `jucmnav.github.io/jUCMNavPlus/`; the historical `damyot/jUCMNavPlus` URL auto-redirects but the old Pages host does not — update your Eclipse update site list |
 | **HTML report — modern rendering** | Replaced the 2008-era frameset + browser-side XSLT + jQuery pipeline with a self-contained `index.html` (flexbox sidebar + content iframe) and full diagram names sorted alphabetically | Reports open correctly in current Chrome / Edge / Firefox — the old XSLT silently failed on `file://` and Chrome announced removal of `XSLTProcessor` in 2024. Names like "GRL-Adequate Follow-up" stay intact instead of getting truncated to "up", and the sidebar reads top-to-bottom in a predictable order |
@@ -65,6 +66,7 @@ trail, see [`git log master`](https://github.com/JUCMNAV/jUCMNavPlus/commits/mas
 | **Add Stereotype Definitions** | Icon resolved against both classloader and bundle-root paths | Menu item shows the correct icon instead of a red-square missing-image placeholder |
 | **Performance — static slicing** | Cached regex `Pattern` + `LinkedHashSet` for dedup in `Parsing.getVariables` | Slicing large GRL models is meaningfully faster (was hot enough to look hung) |
 | **Resource hygiene** | Per-instance `Color` / `Font` / `Image` allocations routed through `ColorManager` cache and `JFaceResources` registries | No SWT-resource warnings in the Error Log during a long modeling session |
+| **10.0.1 maintenance** | Actor stickman now copies / exports with the correct shape (a draw2d scaled-graphics cache bug had dropped its body and one leg in clipboard / bitmap output); the **UCM Scenario Traversal Algorithm** and **GRL Strategy Evaluation Algorithm** pages are back in the jUCMNav Preferences dialog; more post-dispose crash guards across command-stack and property-sheet refreshes; Z.151 belief author / size and the disabled command-stack + Z.151 round-trip tests are now covered by the suite | Paste or export a diagram containing an Actor and the stickman looks right; reach the traversal settings (max-hit-count loop guard, etc.) and the GRL evaluation settings from the jUCMNav Preferences button again; fewer "widget is disposed" crashes during ordinary drag / undo / save |
 
 ## Install
 
