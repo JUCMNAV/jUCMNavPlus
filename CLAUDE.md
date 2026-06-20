@@ -74,13 +74,16 @@ Run As → Eclipse Application to launch a runtime workbench. For tests,
 right-click any class under `seg.jUCMNav.tests/src/` (or the `src/` folder
 itself) → Run As → JUnit Plug-in Test.
 
-`.classpath` is **not committed** (issue #3, Option C): it is per-developer
-IDE state that Eclipse PDE regenerates from `MANIFEST.MF` + `build.properties`
-+ the active target platform, and the Tycho CLI build never reads it. Do not
-re-commit it (it is `.gitignore`d). A fresh import shows discouraged-access
-warnings on `seg.jUCMNav/src/seg/jUCMNav/views/search/` (it uses
-`org.eclipse.search.internal.ui.text.*`, which are `x-internal` packages —
-warnings, not errors); the build still compiles.
+`.classpath` **is committed** (issue #3, settled on Option A). It is the
+canonical IDE source-path definition — in particular it marks `src/` as the
+source folder (without it Eclipse treats the project root as source and every
+package mismatches, e.g. `asd` vs `src.asd`) and carries the access-rule block
+that lets `seg.jUCMNav/src/seg/jUCMNav/views/search/` reach the `x-internal`
+`org.eclipse.search.internal.ui.text.*` types. Option C (gitignore it, let the
+IDE regenerate) was tried and reverted: with `custom = true` in
+`build.properties`, fresh imports do not self-heal the source folder. Do NOT
+"convert to automatic manifest generation" — the `MANIFEST.MF` is hand-authored
+and authoritative. The Tycho CLI build never reads `.classpath`.
 
 ## Repo layout (after scaffolding)
 
