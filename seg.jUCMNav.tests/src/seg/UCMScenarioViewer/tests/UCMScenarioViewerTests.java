@@ -1,6 +1,16 @@
 package seg.UCMScenarioViewer.tests;
 
-import junit.framework.TestCase;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
@@ -14,13 +24,13 @@ import org.eclipse.ui.part.FileEditorInput;
 
 import seg.UCMScenarioViewer.UCMScenarioViewer;
 
-public class UCMScenarioViewerTests extends TestCase {
+public class UCMScenarioViewerTests {
     private UCMScenarioViewer editor;
     private IFile testfile;
     private IWorkbenchPage page;
 
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
 
         IWorkspaceRoot workspaceRoot = ResourcesPlugin.getWorkspace().getRoot();
         IProject testproject = workspaceRoot.getProject("ucmscenarioviewer-tests"); //$NON-NLS-1$
@@ -44,6 +54,7 @@ public class UCMScenarioViewerTests extends TestCase {
         editor = (UCMScenarioViewer) page.openEditor(new FileEditorInput(testfile), desc.getId());
     }
 
+    @Test
     public void testHandleProblem() throws Exception {
         // try to make it run out of handles.
         int i = 0;
@@ -60,9 +71,9 @@ public class UCMScenarioViewerTests extends TestCase {
 
     }
 
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         page.closeEditor(editor, false);
-        super.tearDown();
     }
 
 }

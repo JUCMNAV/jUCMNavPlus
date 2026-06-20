@@ -15,7 +15,17 @@ import jakarta.xml.bind.JAXBException;
 import jakarta.xml.bind.Marshaller;
 import jakarta.xml.bind.Unmarshaller;
 
-import junit.framework.TestCase;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import seg.jUCMNav.importexport.z151.generated.ObjectFactory;
 import seg.jUCMNav.importexport.z151.generated.URNspec;
 import seg.jUCMNav.importexport.z151.marshal.MHandler;
@@ -39,8 +49,9 @@ import seg.jUCMNav.importexport.z151.unmarshal.URNspecUMHandler;
  * a bundle resource and writes output to a temp file, so it is location- and
  * platform-independent.
  */
-public class Z151importexportTest extends TestCase {
+public class Z151importexportTest {
 
+    @Test
     public void testActor() throws Exception {
         compareTwoZ151File("actor.z151"); //$NON-NLS-1$
     }

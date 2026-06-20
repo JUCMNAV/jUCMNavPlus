@@ -4,7 +4,17 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Vector;
 
-import junit.framework.TestCase;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IMarker;
@@ -40,6 +50,7 @@ import seg.jUCMNav.model.util.modelexplore.queries.StartPointFinder;
 import seg.jUCMNav.model.util.modelexplore.queries.StartPointFinder.QFindReachableStartPoints;
 import seg.jUCMNav.scenarios.ScenarioUtils;
 import seg.jUCMNav.tests.commands.JUCMNavCommandTests;
+import seg.jUCMNav.tests.commands.JUCMNavTestFixture;
 import ucm.map.AndFork;
 import ucm.map.AndJoin;
 import ucm.map.EmptyPoint;
@@ -60,7 +71,7 @@ import ucm.scenario.Variable;
 import urn.URNspec;
 import urncore.Condition;
 
-public class ScenarioTraversalTests extends TestCase {
+public class ScenarioTraversalTests {
 
     protected ScenarioGroup grp;
     protected ScenarioDef scenario;
@@ -70,9 +81,16 @@ public class ScenarioTraversalTests extends TestCase {
     protected CommandStack cs;
     protected URNspec urnspec;
 
-    protected void setUp() throws Exception {
+    @Before
+    public void setUp() throws Exception {
+        // Share one fixture with a JUCMNavCommandTests instance instead of the old
+        // "new JUCMNavCommandTests(); tester.initjucmnav()" friendship hack: we set
+        // the fixture up here and hand it to the tester, whose builder test methods
+        // (testCreatePathCommand, ...) we reuse to construct scenarios. (Issue #8)
+        JUCMNavTestFixture fixture = new JUCMNavTestFixture();
+        fixture.initjucmnav();
         tester = new JUCMNavCommandTests();
-        tester.initjucmnav();
+        tester.adoptFixture(fixture);
         tester.testBindings = false;
 
         urnspec = tester.urnspec;
@@ -87,7 +105,8 @@ public class ScenarioTraversalTests extends TestCase {
 
     }
 
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         if (run) {
             runscenario();
         }
@@ -104,6 +123,7 @@ public class ScenarioTraversalTests extends TestCase {
      * Given SPEP, launch SP, reach EP. Pre/post conditions true.
      * 
      */
+    @Test
     public void testSimple1() {
         tester.testCreatePathCommand();
 
@@ -118,6 +138,7 @@ public class ScenarioTraversalTests extends TestCase {
      * Given SPEP with a few empty points in middle, launch SP, reach EP. Pre/post conditions true.
      * 
      */
+    @Test
     public void testSimple2() {
         tester.testExtendPathCommand();
         tester.start.setPrecondition(getCondition("true")); //$NON-NLS-1$
@@ -131,6 +152,7 @@ public class ScenarioTraversalTests extends TestCase {
      * Given SPREP, launch SP, reach EP. R sets boolean condition to false, verified in post condition.
      * 
      */
+    @Test
     public void testSimple3() {
 
         initialize(addBoolean("b"), "true"); //$NON-NLS-1$ //$NON-NLS-2$
@@ -151,6 +173,7 @@ public class ScenarioTraversalTests extends TestCase {
      * Given SPREP, launch SP, reach EP. R sets integer condition to a certain non-zero value, verified in post condition
      * 
      */
+    @Test
     public void testSimple4() {
 
         initialize(addInteger("i"), "15"); //$NON-NLS-1$ //$NON-NLS-2$
@@ -171,6 +194,7 @@ public class ScenarioTraversalTests extends TestCase {
      * Given SPREP, launch SP, reach EP. R increments integer. R has repetition count. Total count verified in post condition
      * 
      */
+    @Test
     public void testSimple5() {
 
         initialize(addInteger("i"), "15"); //$NON-NLS-1$ //$NON-NLS-2$
@@ -191,6 +215,7 @@ public class ScenarioTraversalTests extends TestCase {
      * Given SPREP, launch SP, reach EP. R sets enum condition to a certain value, verified in post condition
      * 
      */
+    @Test
     public void testSimple6() {
 
         Vector<String> v = new Vector<String>();
@@ -216,6 +241,7 @@ public class ScenarioTraversalTests extends TestCase {
      * Given SPOFEP, launch SP, reach appropriate EP given varying boolean condition. (two tests).
      * 
      */
+    @Test
     public void testFork1() {
         tester.testForkPathsCommand();
         initialize(addBoolean("b"), "true"); //$NON-NLS-1$ //$NON-NLS-2$
@@ -248,6 +274,7 @@ public class ScenarioTraversalTests extends TestCase {
      * Given SPOFEP, launch SP, reach appropriate EP given varying integer condition. (two tests).
      * 
      */
+    @Test
     public void testFork2() {
         tester.testForkPathsCommand();
         initialize(addInteger("i"), "15"); //$NON-NLS-1$ //$NON-NLS-2$
@@ -280,6 +307,7 @@ public class ScenarioTraversalTests extends TestCase {
      * Given SPOFEP, launch SP, reach appropriate EP given varying enumeration condition. (two tests).
      * 
      */
+    @Test
     public void testFork3() {
         tester.testForkPathsCommand();
         Vector<String> v = new Vector<String>();
@@ -317,6 +345,7 @@ public class ScenarioTraversalTests extends TestCase {
      * Given SPAF(EP|EP), launch SP, reach both EP.
      * 
      */
+    @Test
     public void testFork4() {
         tester.testExtendPathCommand();
         AndFork fork = (AndFork) ModelCreationFactory.getNewObject(urnspec, AndFork.class);
@@ -337,6 +366,7 @@ public class ScenarioTraversalTests extends TestCase {
      * Given (SP|SP)AJEP, launch both SP, reach EP.
      * 
      */
+    @Test
     public void testJoin1() {
         tester.testExtendPathCommand();
         AndJoin join = (AndJoin) ModelCreationFactory.getNewObject(urnspec, AndJoin.class);
@@ -356,6 +386,7 @@ public class ScenarioTraversalTests extends TestCase {
      * Given (SP|SP)OJEP, launch both sp, reach EP twice.
      * 
      */
+    @Test
     public void testJoin2() {
         tester.testJoinPathsCommand();
 
@@ -374,6 +405,7 @@ public class ScenarioTraversalTests extends TestCase {
      * Given SPEPCSPEP, launch first sp, reach both EP.
      * 
      */
+    @Test
     public void testSynchConnect1() {
         tester.testConnectCommand();
 
@@ -390,6 +422,7 @@ public class ScenarioTraversalTests extends TestCase {
      * Given (SPEPC|SP)WPEP where WP is blocked, verify both EP are reached if SPEP is fired after SP.
      * 
      */
+    @Test
     public void testSynchConnect2() {
 
         tester.testReplaceEmptyPointCommand();
@@ -412,6 +445,7 @@ public class ScenarioTraversalTests extends TestCase {
      * Given (SPEPC|SP)TEP where T is blocked, verify both EP are reached if SPEP is fired after SP.
      * 
      */
+    @Test
     public void testSynchConnect3() {
         tester.testReplaceEmptyPointCommand2();
         // will be blocked
@@ -433,6 +467,7 @@ public class ScenarioTraversalTests extends TestCase {
      * Given (SPC|SP)EMPTY EP (asynch connect), verify that EP is fired even if you launch only SPC. Verify that if you launch both, the EP is reached twice.
      * 
      */
+    @Test
     public void testAsynchConnect1() {
         testSimple2();
         EmptyPoint empty = (EmptyPoint) ((NodeConnection) tester.start.getSucc().get(0)).getTarget();
@@ -449,6 +484,7 @@ public class ScenarioTraversalTests extends TestCase {
      * Given SPWPEP, where WP is released on arrival by condition, EP is reached
      * 
      */
+    @Test
     public void testWp1() {
         tester.testReplaceEmptyPointCommand();
 
@@ -463,6 +499,7 @@ public class ScenarioTraversalTests extends TestCase {
      * Given SPTEP, where T is released on arrival by condition, EP is reached.
      * 
      */
+    @Test
     public void testWp2() {
         tester.testReplaceEmptyPointCommand2();
 
@@ -479,6 +516,7 @@ public class ScenarioTraversalTests extends TestCase {
      * Given SPTEP, where T timeout path is released on arrival by condition, EP is reached
      * 
      */
+    @Test
     public void testWp3() {
         tester.testReplaceEmptyPointCommand2();
 
@@ -499,6 +537,7 @@ public class ScenarioTraversalTests extends TestCase {
      * Given SPREP and SPWPEP, where R sets a condition that unblocks waiting place, verify both EP fired regardless of start order.
      * 
      */
+    @Test
     public void testWp4() {
 
         // runs first
@@ -525,6 +564,7 @@ public class ScenarioTraversalTests extends TestCase {
      * Given SPREP and SPTEP, where R sets a condition that unblocks timer (no timeout path), verify both EP fired regardless of start order.
      * 
      */
+    @Test
     public void testWp5() {
 
         // runs first
@@ -552,6 +592,7 @@ public class ScenarioTraversalTests extends TestCase {
      * Given SPREP and SPTEP, where R sets a condition that unblocks timeout path, verify 2/3 EP fired regardless of start order.
      * 
      */
+    @Test
     public void testWp6() {
 
         // runs first
@@ -589,6 +630,7 @@ public class ScenarioTraversalTests extends TestCase {
      * Given SPSTEP where ST bound to SPEP, fire top SP, verify both EP reached
      * 
      */
+    @Test
     public void testStub1() {
         tester.testAddInBindingCommand();
         Command cmd;
@@ -615,6 +657,7 @@ public class ScenarioTraversalTests extends TestCase {
      * Given SPSTEP where ST bound to SPEP, fire bottom SP, verify only bottom EP reached.
      * 
      */
+    @Test
     public void testStub2() {
         tester.testAddInBindingCommand();
         Command cmd;
@@ -652,6 +695,7 @@ public class ScenarioTraversalTests extends TestCase {
      * implementation)
      * 
      */
+    @Test
     public void testStub3() {
         testStub1();
         tester.map = (UCMmap) urnspec.getUrndef().getSpecDiagrams().get(0);
@@ -690,6 +734,7 @@ public class ScenarioTraversalTests extends TestCase {
      * Given SPSTEP where ST bound to two different maps with SPEP, given varying boolean condition, verify the appropriate two EP are reached
      * 
      */
+    @Test
     public void testStub4() {
         testStub1();
 

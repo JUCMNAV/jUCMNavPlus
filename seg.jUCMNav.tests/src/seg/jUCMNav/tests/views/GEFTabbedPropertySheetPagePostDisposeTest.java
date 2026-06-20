@@ -12,7 +12,17 @@ import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.part.FileEditorInput;
 
-import junit.framework.TestCase;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import seg.jUCMNav.editors.UCMNavMultiPageEditor;
 import seg.jUCMNav.views.property.tabbed.GEFTabbedPropertySheetPage;
 
@@ -36,12 +46,12 @@ import seg.jUCMNav.views.property.tabbed.GEFTabbedPropertySheetPage;
  *
  * @author Claude (QA modernization)
  */
-public class GEFTabbedPropertySheetPagePostDisposeTest extends TestCase {
+public class GEFTabbedPropertySheetPagePostDisposeTest {
 
     private UCMNavMultiPageEditor editor;
 
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
 
         IWorkspaceRoot workspaceRoot = ResourcesPlugin.getWorkspace().getRoot();
         IProject testproject = workspaceRoot.getProject("jUCMNav-tests"); //$NON-NLS-1$
@@ -60,13 +70,13 @@ public class GEFTabbedPropertySheetPagePostDisposeTest extends TestCase {
         editor = (UCMNavMultiPageEditor) page.openEditor(new FileEditorInput(testfile), desc.getId());
     }
 
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         if (editor != null) {
             IWorkbenchPage page = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
             page.closeEditor(editor, false);
             editor = null;
         }
-        super.tearDown();
     }
 
     /**
@@ -74,6 +84,7 @@ public class GEFTabbedPropertySheetPagePostDisposeTest extends TestCase {
      * disposed must not throw. Before the fix this NPEd because dispose() nulls
      * sectionsToRefresh while a stale stack could still deliver notifications.
      */
+    @Test
     public void testCommandStackChangedAfterDisposeIsNullSafe() throws Exception {
         GEFTabbedPropertySheetPage propertyPage = new GEFTabbedPropertySheetPage(editor);
         CommandStack stack = editor.getDelegatingCommandStack();

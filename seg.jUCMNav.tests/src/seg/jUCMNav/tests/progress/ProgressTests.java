@@ -6,7 +6,17 @@ import java.util.List;
 import java.util.Stack;
 import java.util.Vector;
 
-import junit.framework.TestCase;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
@@ -116,7 +126,7 @@ import urncore.UCMmodelElement;
  * @author jkealey
  * 
  */
-public class ProgressTests extends TestCase {
+public class ProgressTests {
     private UCMNavMultiPageEditor editor;
     private IFile testfile;
 
@@ -330,8 +340,8 @@ public class ProgressTests extends TestCase {
      * 
      * @see TestCase#setUp()
      */
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
 
         IWorkspaceRoot workspaceRoot = ResourcesPlugin.getWorkspace().getRoot();
         IProject testproject = workspaceRoot.getProject("jUCMNav-tests"); //$NON-NLS-1$
@@ -373,8 +383,8 @@ public class ProgressTests extends TestCase {
     /*
      * @see TestCase#tearDown()
      */
-    protected void tearDown() throws Exception {
-        super.tearDown();
+    @After
+    public void tearDown() throws Exception {
 
         editor.closeEditor(false);
     }
@@ -384,6 +394,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author:
      */
+    @Test
     public void testReqBrowseHistory1() {
         assertTrue("editor must extend INavigationLocationProvider", editor instanceof INavigationLocationProvider); //$NON-NLS-1$
     }
@@ -393,6 +404,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqComp1() {
 
         // Is there a tool to create a ComponentRef in the palette?
@@ -434,6 +446,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqComp2() {
 
         // create the component ref that will be used for testing.
@@ -486,6 +499,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqCompCompBind1() {
 
         assertTrue("Test created for SetConstraintContainerRefCommand defaults that no longer hold.", ModelCreationFactory.DEFAULT_UCM_COMPONENT_HEIGHT //$NON-NLS-1$
@@ -554,6 +568,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqCompCompBind2() {
         testReqCompCompBind1();
         ComponentRef parent = (ComponentRef) getMap().getContRefs().get(1);
@@ -574,6 +589,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqCompCompUnbind1() {
         testReqCompCompBind1();
 
@@ -602,6 +618,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author:
      */
+    @Test
     public void testReqCompCompUnbind2() {
         testReqCompCompBind1();
         ComponentRef parent = (ComponentRef) getMap().getContRefs().get(1);
@@ -618,6 +635,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqCompPathBind1() {
         // create the component ref that will be used for testing.
         ComponentRef cr = (ComponentRef) ModelCreationFactory.getNewObject(urn, ComponentRef.class, ComponentKind.TEAM);
@@ -650,6 +668,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqCompPathBind2() {
         testReqCompPathBind1();
         PathNode node = (PathNode) getMap().getNodes().get(1);
@@ -667,6 +686,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqCompPathUnbind1() {
         testReqCompPathBind1();
 
@@ -691,6 +711,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author:
      */
+    @Test
     public void testReqCompPathUnbind2() {
         testReqCompPathUnbind1();
         PathNode node = (PathNode) getMap().getNodes().get(1);
@@ -707,6 +728,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqConnections1() {
         // create a simple path
         Command cmd = new CreatePathCommand(getMap(), 100, 200);
@@ -752,6 +774,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqConnections2() {
         testReqConnections1();
         // get an endpoint connected to a start point.
@@ -793,6 +816,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqConnections3() {
         testReqConnections1();
         // get an endpoint connected to a start point.
@@ -824,6 +848,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemAndFork1() {
         // Is there a tool to create a AndFork in the palette?
         CreationTool createtool = getToolEntryForClass(AndFork.class);
@@ -835,6 +860,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemAndFork2() {
         // create a simple path
         Command cmd = new CreatePathCommand(getMap(), 100, 200);
@@ -868,6 +894,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemAndFork3() {
 
         Vector v = testReqElemFork3_setup();
@@ -930,6 +957,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemAndJoin1() {
         // Is there a tool to create a AndJoin in the palette?
         CreationTool createtool = getToolEntryForClass(AndJoin.class);
@@ -941,6 +969,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemAndJoin2() {
         // create a simple path
         Command cmd = new CreatePathCommand(getMap(), 100, 200);
@@ -973,6 +1002,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemAndJoin3() {
         // get an emptypoint and an end point, from the other path.
         EmptyPoint ep = null;
@@ -1018,6 +1048,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemDelete1() {
         testReqElemStartPoint1();
         Command cmd;
@@ -1058,6 +1089,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemDelete2() {
         testReqElemAndFork2();
         AndFork fork = null;
@@ -1094,6 +1126,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemDelete3() {
         testReqComp1();
 
@@ -1116,6 +1149,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemDelete4() {
         testReqElemAndFork2();
         AndFork fork = null;
@@ -1164,6 +1198,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemDelete5() {
         testReqElemAndFork2();
         AndFork fork = null;
@@ -1202,6 +1237,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemDirectionArrow1() {
         // Is there a tool to create a DirectionArrow in the palette?
         CreationTool createtool = getToolEntryForClass(DirectionArrow.class);
@@ -1213,6 +1249,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemDirectionArrow2() {
         // yeah, really lazy testing.
         DirectionArrowFigure df = new DirectionArrowFigure();
@@ -1227,6 +1264,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemDynamicStub1() {
         // Is there a tool to create a Stub in the palette? without rewriting stuff, we can't get access to the creationfactory. assume dynamic exists if stub
         // exists
@@ -1239,6 +1277,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author:
      */
+    @Test
     public void testReqElemDynamicStub2() {
         // create a simple path
         Command cmd = new CreatePathCommand(getMap(), 0, 100);
@@ -1284,6 +1323,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemEmptyPoint1() {
         assertTrue("No palette entry creates EmptyPoint (No path tool)", isToolEntryPresent(PathToolEntry.class)); //$NON-NLS-1$
     }
@@ -1293,6 +1333,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemEmptyPoint2() {
         testReqElemStartPoint1();
         PathNode pn = null;
@@ -1331,6 +1372,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemEndPoint1() {
         assertTrue("No palette entry creates EndPoint (No path tool)", isToolEntryPresent(PathToolEntry.class)); //$NON-NLS-1$
 
@@ -1341,6 +1383,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemEndPoint2() {
         // create a simple path
         Command cmd = new CreatePathCommand(getMap(), 0, 100);
@@ -1371,6 +1414,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemEndPoint3() {
         testReqElemStartPoint1();
 
@@ -1406,6 +1450,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemOrFork1() {
         // Is there a tool to create a OrFork in the palette?
         CreationTool createtool = getToolEntryForClass(OrFork.class);
@@ -1417,6 +1462,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemOrFork2() {
         // create a simple path
         Command cmd = new CreatePathCommand(getMap(), 100, 200);
@@ -1449,6 +1495,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemOrFork3() {
         Vector v = testReqElemFork3_setup();
 
@@ -1474,6 +1521,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemOrFork4() {
         testReqElemOrFork3();
 
@@ -1514,6 +1562,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemOrJoin1() {
         // Is there a tool to create a OrJoin in the palette?
         CreationTool createtool = getToolEntryForClass(OrJoin.class);
@@ -1525,6 +1574,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemOrJoin2() {
         // create a simple path
         Command cmd = new CreatePathCommand(getMap(), 100, 200);
@@ -1557,6 +1607,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemOrJoin3() {
         // create a simple path
         Command cmd = new CreatePathCommand(getMap(), 100, 200);
@@ -1613,6 +1664,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemResponsibility1() {
         // Is there a tool to create a RespRef in the palette?
         CreationTool createtool = getToolEntryForClass(RespRef.class);
@@ -1624,6 +1676,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemResponsibility2() {
         testReqElemStartPoint1();
         Command cmd;
@@ -1656,6 +1709,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemStartPoint1() {
         int childCount = getMapEditPart(0).getChildren().size();
 
@@ -1691,6 +1745,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemStartPoint2() {
         testReqElemStartPoint1();
 
@@ -1726,6 +1781,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemStartPointAttributes1() {
         testReqElemStartPoint1();
 
@@ -1761,6 +1817,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemStaticStub1() {
         // Is there a tool to create a Stub in the palette? without rewriting stuff, we can't get access to the creationfactory. assume static exists if stub
         // exists
@@ -1773,6 +1830,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemStaticStub2() {
         // create a simple path
         Command cmd = new CreatePathCommand(getMap(), 0, 100);
@@ -1816,6 +1874,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemStubActions1() {
         Vector<EObject> v = new Vector<EObject>();
         v.add(urn);
@@ -1893,6 +1952,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemTimer1() {
         // Is there a tool to create a Timer in the palette?
         CreationTool createtool = getToolEntryForClass(Timer.class);
@@ -1904,6 +1964,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemTimer2() {
         testReqElemStartPoint1();
 
@@ -1951,6 +2012,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemWait1() {
         // Is there a tool to create a WaitingPlace in the palette?
         CreationTool createtool = getToolEntryForClass(WaitingPlace.class);
@@ -1962,6 +2024,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqElemWait2() {
         testReqElemStartPoint1();
 
@@ -1998,6 +2061,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqExportBitmap1() {
         ExportWizard wiz = new ExportWizard();
         assertTrue("not an export wizard", wiz instanceof IExportWizard); //$NON-NLS-1$
@@ -2008,6 +2072,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqExportBitmap2() {
         Vector<EObject> v = new Vector<EObject>();
         v.add(getMap());
@@ -2024,6 +2089,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqHelpAbout1() {
         // implicit by the distribution of about.html with the zip file. not worth testing.
         assertTrue("about.html not in zip file", true); //$NON-NLS-1$
@@ -2035,6 +2101,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqHelpOnLine1() {
         // implicit by the distribution of help.xml with the zip file. not worth testing.
         assertTrue("help.xml not in zip file", true); //$NON-NLS-1$
@@ -2045,6 +2112,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author:jkealey
      */
+    @Test
     public void testReqBrowseModel1() {
         assertNotNull("outline doesn't exist", editor.getAdapter(IContentOutlinePage.class)); //$NON-NLS-1$
     }
@@ -2054,6 +2122,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqBrowseModel2() {
         // botched implementation.
         IPropertySource ips = (IPropertySource) getEditPart(getMap(0)).getAdapter(IPropertySource.class);
@@ -2092,6 +2161,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqLabels1() {
         testReqElemStartPoint1();
 
@@ -2128,6 +2198,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqLabels2() {
         testReqElemResponsibility2();
 
@@ -2175,6 +2246,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqOpen1() {
         // real testing done in JUCMNavCommandTests
         assertTrue("top level model element is URNSpec", editor.getModel() instanceof URNspec); //$NON-NLS-1$
@@ -2185,6 +2257,7 @@ public class ProgressTests extends TestCase {
      * 
      * Author: jkealey
      */
+    @Test
     public void testReqSave1() {
         // real testing done in JUCMNavCommandTests
         assertTrue("top level model element is URNSpec", editor.getModel() instanceof URNspec); //$NON-NLS-1$

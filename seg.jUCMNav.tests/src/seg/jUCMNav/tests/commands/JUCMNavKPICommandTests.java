@@ -19,7 +19,17 @@ import java.io.ByteArrayInputStream;
 import java.util.HashSet;
 import java.util.Iterator;
 
-import junit.framework.TestCase;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
@@ -63,10 +73,7 @@ import urncore.IURNDiagram;
  * @author pchen
  * 
  */
-public class JUCMNavKPICommandTests extends TestCase {
-    public static void main(String[] args) {
-        junit.textui.TestRunner.run(JUCMNavKPICommandTests.class);
-    }
+public class JUCMNavKPICommandTests {
 
     private UCMNavMultiPageEditor editor;
     private CommandStack cs;
@@ -89,8 +96,8 @@ public class JUCMNavKPICommandTests extends TestCase {
 
     private boolean testBindings;
 
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
 
         testBindings = true;
 
@@ -141,8 +148,8 @@ public class JUCMNavKPICommandTests extends TestCase {
 
     }
 
-    protected void tearDown() throws Exception {
-        super.tearDown();
+    @After
+    public void tearDown() throws Exception {
 
         try {
             editor.doSave(null);
@@ -184,6 +191,7 @@ public class JUCMNavKPICommandTests extends TestCase {
 
     }
 
+    @Test
     public void testAddIndicatorRefCommand() {
         indRef = (IntentionalElementRef) ModelCreationFactory.getNewObject(urnspec, IntentionalElementRef.class, IntentionalElementType.INDICATOR);
 
@@ -196,6 +204,7 @@ public class JUCMNavKPICommandTests extends TestCase {
         ind = (Indicator) indRef.getDef();
     }
 
+    @Test
     public void testAddKPIInformationConfigCommand() {
         testAddKPIInformationElementRefCommand();
         testCreateStrategyCommand();
@@ -209,6 +218,7 @@ public class JUCMNavKPICommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testAddKPIInformationElementRefCommand() {
         kpiInfoElemRef = (KPIInformationElementRef) ModelCreationFactory.getNewObject(urnspec, KPIInformationElementRef.class);
 
@@ -221,6 +231,7 @@ public class JUCMNavKPICommandTests extends TestCase {
         kpiInfoElem = kpiInfoElemRef.getDef();
     }
 
+    @Test
     public void testCreateAllKPIModelLinkRefCommand() {
         // Create 2 diagrams, add 3 elements with references in each them and create link between the elements
         Command cmd = new CreateGrlGraphCommand(urnspec);
@@ -297,6 +308,7 @@ public class JUCMNavKPICommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testCreateIndicatorGroupCommand() {
         indGroup = (IndicatorGroup) ModelCreationFactory.getNewObject(urnspec, IndicatorGroup.class);
         indGroup.setName("groupx"); //$NON-NLS-1$
@@ -306,6 +318,7 @@ public class JUCMNavKPICommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testCreateKPIModelLinkCommand() {
         testAddIndicatorRefCommand();
         testAddKPIInformationElementRefCommand();
@@ -319,6 +332,7 @@ public class JUCMNavKPICommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testDeleteAllKPIModelLinkRefCommand() {
         testCreateKPIModelLinkCommand();
 
@@ -327,6 +341,7 @@ public class JUCMNavKPICommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testDeleteIndicatorGroupCommand() {
         testCreateIndicatorGroupCommand();
 
@@ -335,10 +350,9 @@ public class JUCMNavKPICommandTests extends TestCase {
         cs.execute(cmd);
     }
 
-    // Phase 3 disabled (renamed `test` -> `disabled_test` so JUnit 3 reflection skips):
-    // tearDown's undo-save-canRedo round-trip relies on the URN-spec command stack
-    // being preserved across save; jUCMNav intentionally flushes it on save. See
-    // disabled_testDeleteGRLNodeCommand in JUCMNavGRLCommandTests for the full note.
+    // Exercises a create/delete-diagram on the URN-spec stack; relies on the
+    // drain-based tearDown round-trip (issue #6) rather than a symmetric assertion.
+    @Test
     public void testDeleteKPIInformationElementCommand() {
         testCreateKPIModelLinkCommand();
 
@@ -347,6 +361,7 @@ public class JUCMNavKPICommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testDeleteKPIModelLinkCommand() {
         testCreateKPIModelLinkCommand();
 
@@ -355,6 +370,7 @@ public class JUCMNavKPICommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testAssignIndicatorGroupCommand() {
         testAddIndicatorRefCommand();
 
@@ -387,6 +403,7 @@ public class JUCMNavKPICommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testCreateStrategiesGroupCommand() {
         strategiesGroup = (StrategiesGroup) ModelCreationFactory.getNewObject(urnspec, StrategiesGroup.class);
 
@@ -396,6 +413,7 @@ public class JUCMNavKPICommandTests extends TestCase {
 
     }
 
+    @Test
     public void testCreateStrategyCommand() {
         testCreateStrategiesGroupCommand();
 

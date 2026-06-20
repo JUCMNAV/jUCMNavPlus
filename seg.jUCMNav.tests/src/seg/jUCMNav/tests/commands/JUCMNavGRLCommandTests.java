@@ -36,7 +36,17 @@ import grl.IntentionalElementType;
 import grl.LinkRef;
 import grl.LinkRefBendpoint;
 import grl.StrategiesGroup;
-import junit.framework.TestCase;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import seg.jUCMNav.editors.UCMNavMultiPageEditor;
 import seg.jUCMNav.model.ModelCreationFactory;
 import seg.jUCMNav.model.commands.change.ModifyUrnLinkCommand;
@@ -107,11 +117,7 @@ import urncore.URNmodelElement;
  * @author Jean-Fran�ois Roy
  * 
  */
-public class JUCMNavGRLCommandTests extends TestCase {
-
-    public static void main(String[] args) {
-        junit.textui.TestRunner.run(JUCMNavGRLCommandTests.class);
-    }
+public class JUCMNavGRLCommandTests {
 
     private UCMNavMultiPageEditor editor;
     private CommandStack cs;
@@ -135,8 +141,8 @@ public class JUCMNavGRLCommandTests extends TestCase {
 
     private boolean testBindings;
 
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
 
         testBindings = true;
 
@@ -187,8 +193,8 @@ public class JUCMNavGRLCommandTests extends TestCase {
 
     }
 
-    protected void tearDown() throws Exception {
-        super.tearDown();
+    @After
+    public void tearDown() throws Exception {
 
         try {
             editor.doSave(null);
@@ -230,6 +236,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
 
     }
 
+    @Test
     public void testAddBeliefCommand() {
         belief = (Belief) ModelCreationFactory.getNewObject(urnspec, Belief.class);
 
@@ -240,6 +247,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testAddBeliefLinkCommand() {
         BeliefLink belieflink = (BeliefLink) ModelCreationFactory.getNewObject(urnspec, BeliefLink.class);
         testAddBeliefCommand();
@@ -252,6 +260,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testAddBeliefToIntentionalElementRefCommand() {
         testAddIntentionalElementRefCommand();
 
@@ -260,6 +269,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testAddContainerRefCommand() {
         actorref = (ActorRef) ModelCreationFactory.getNewObject(urnspec, ActorRef.class);
         Command cmd = new AddContainerRefCommand(graph, actorref);
@@ -267,6 +277,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testAddDependencyElementLinkCommand() {
         testAddIntentionalElementRefCommand();
         IntentionalElementRef destination = (IntentionalElementRef) ModelCreationFactory.getNewObject(urnspec, IntentionalElementRef.class,
@@ -284,6 +295,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testAddEvaluationCommand() {
         testAddIntentionalElementRefCommand();
         testCreateStrategiesGroupCommand();
@@ -297,6 +309,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testAddIntentionalElementRefCommand() {
         ref = (IntentionalElementRef) ModelCreationFactory.getNewObject(urnspec, IntentionalElementRef.class, IntentionalElementType.SOFTGOAL);
 
@@ -307,6 +320,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testAddLinkRefBendpointCommand() {
         testCreateElementLinkCommand_StandardLink();
 
@@ -318,6 +332,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testAddStandardElementLinkCommand() {
         testAddIntentionalElementRefCommand();
         IntentionalElementRef destination = (IntentionalElementRef) ModelCreationFactory.getNewObject(urnspec, IntentionalElementRef.class,
@@ -337,6 +352,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testChangeDecompositionTypeCommand() {
         testAddIntentionalElementRefCommand();
         IntentionalElementRef destination = (IntentionalElementRef) ModelCreationFactory.getNewObject(urnspec, IntentionalElementRef.class,
@@ -363,6 +379,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         assertTrue("ChangeDecompositionTypeCommand: type has not changed.", destination.getDef().getDecompositionType().getValue() == DecompositionType.OR); //$NON-NLS-1$
     }
 
+    @Test
     public void testContainerRefBindChildCommand() {
         // This test bind an actor ref and a node to a parent actorref
         testAddContainerRefCommand();
@@ -394,6 +411,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
          */
     }
 
+    @Test
     public void testContainerRefUnbindChildCommand() {
         testAddContainerRefCommand();
         testAddIntentionalElementRefCommand();
@@ -414,6 +432,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         testBindings = false;
     }
 
+    @Test
     public void testCreateAllLinkRefCommand() {
         // Create 2 diagrams, add 3 elements with references in each them and create link between the elements
         Command cmd = new CreateGrlGraphCommand(urnspec);
@@ -481,6 +500,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testCreateElementLinkCommand_Dependency() {
         testAddIntentionalElementRefCommand();
         link = (Dependency) ModelCreationFactory.getNewObject(urnspec, Dependency.class);
@@ -499,6 +519,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testCreateElementLinkCommand_StandardLink() {
         testAddIntentionalElementRefCommand();
         link = (Contribution) ModelCreationFactory.getNewObject(urnspec, Contribution.class);
@@ -517,6 +538,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testCreateStrategiesGroupCommand() {
         strategiesgroup = (StrategiesGroup) ModelCreationFactory.getNewObject(urnspec, StrategiesGroup.class);
 
@@ -526,6 +548,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
 
     }
 
+    @Test
     public void testCreateStrategyCommand() {
         testCreateStrategiesGroupCommand();
         // strategy = (EvaluationStrategy)ModelCreationFactory.getNewObject(urnspec, EvaluationStrategy.class);
@@ -536,6 +559,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testDeleteActorCommand() {
         testContainerRefBindChildCommand();
         Actor actor = (Actor) actorref.getContDef();
@@ -545,6 +569,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testDeleteActorRefCommand() {
         testContainerRefBindChildCommand();
 
@@ -553,6 +578,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testDeleteAllLinkRefCommand() {
         testCreateElementLinkCommand_Dependency();
 
@@ -561,6 +587,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testDeleteElementLinkCommand() {
         testCreateElementLinkCommand_Dependency();
 
@@ -569,19 +596,16 @@ public class JUCMNavGRLCommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testDeleteGRLGraphCommand() {
         Command cmd = new DeleteGRLGraphCommand(graph);
         assertTrue("Can't execute DeleteGRLGraphCommand.", cmd.canExecute()); //$NON-NLS-1$
         cs.execute(cmd);
     }
 
-    // Phase 3 disabled (renamed `test` -> `disabled_test` so JUnit 3 reflection skips):
-    // tearDown's undo-save-canRedo round-trip relies on the URN-spec command stack
-    // being preserved across save. jUCMNav intentionally flushes that stack on save
-    // (MultiPageCommandStackListener.commandStackChanged line 107) so users cannot
-    // undo across a save boundary -- a UX rule, not a regression. The test was never
-    // executed by CI before Phase 2 wired the suite. Re-enable only if the UX rule
-    // around save-flush is revisited.
+    // Exercises a create/delete-diagram on the URN-spec stack; relies on the
+    // drain-based tearDown round-trip (issue #6) rather than a symmetric assertion.
+    @Test
     public void testDeleteGRLNodeCommand() {
         testCreateElementLinkCommand_Dependency();
 
@@ -590,7 +614,8 @@ public class JUCMNavGRLCommandTests extends TestCase {
         cs.execute(cmd);
     }
 
-    // Phase 3 disabled (see disabled_testDeleteGRLNodeCommand above).
+    // Like testDeleteGRLNodeCommand above; see that note (issue #6).
+    @Test
     public void testDeleteIntentionalElementCommand() {
         testCreateElementLinkCommand_Dependency();
 
@@ -601,6 +626,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testDeleteLinkRefBendpointCommand() {
         testAddLinkRefBendpointCommand();
 
@@ -614,6 +640,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testDeleteLinkRefCommand() {
         testCreateElementLinkCommand_Dependency();
 
@@ -625,6 +652,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testDeleteStrategiesGroupCommand() {
         testCreateStrategiesGroupCommand();
 
@@ -633,6 +661,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testAddUrnLinkCommand() {
         testAddIntentionalElementRefCommand();
 
@@ -653,6 +682,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testDeleteURNlinkCommand() {
         testAddUrnLinkCommand();
 
@@ -661,6 +691,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testModifyURNlinkCommand() {
     	String oldType = "test old URN Link type"; //$NON-NLS-1$
     	String newType = "test new URN Link type"; //$NON-NLS-1$
@@ -681,6 +712,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         assertTrue( "Can't redo Modify URN Link.", urnlink.getType().equals(newType)); //$NON-NLS-1$
         
     }
+    @Test
     public void testMoveLinkRefBendpointCommand() {
         testAddLinkRefBendpointCommand();
 
@@ -694,6 +726,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testSetConstraintCommand() {
         testAddIntentionalElementRefCommand();
 
@@ -702,6 +735,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         cs.execute(cmd);
     }
 
+    @Test
     public void testSetConstraintBoundContainerRefCompoundCommand() {
         testAddContainerRefCommand();
 
@@ -710,6 +744,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         cs.execute(cmd);
     }
     
+    @Test
     public void testCreateGRLGraph()
     {
         Command cmd = new CreateGrlGraphCommand(urnspec);
@@ -1016,6 +1051,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         assertTrue(graph3.getContRefs().size() == 1);
     }
     
+    @Test
     public void testShowLinkedElementCommand()
     {   
         testCreateGRLGraph();
@@ -1067,6 +1103,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         //assertTrue(graph2.getNodes().size() == 1);
     }
     
+    @Test
     public void testShowLinkedElementAlternativeCommand()
     {
         testCreateGRLGraph();
@@ -1119,6 +1156,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         //assertTrue(graph2.getNodes().size() == 1);
     }
     
+    @Test
     public void testShowLinkedElementAlternativeSubNodesCommand() {
         testCreateGRLGraph();
         
@@ -1168,6 +1206,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         assertTrue(graph2.getNodes().size() == 7);
     }
     
+    @Test
     public void testShowLinkedElementCompleteCommand() {
         testCreateGRLGraph();
         
@@ -1195,6 +1234,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         assertTrue(graph2.getNodes().size() == 15);
     }
     
+    @Test
     public void testShowLinkedElementCompleteSubNodesCommand() {
         testCreateGRLGraph();
         
@@ -1222,6 +1262,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         assertTrue(graph2.getNodes().size() == 7);
   }
     
+    @Test
     public void testShowContainingActorCommand() {
         testCreateGRLGraph();
         
@@ -1251,6 +1292,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         //System.out.println("Rouzy: " + graph2.getContRefs().size());
   }
     
+    @Test
     public void testShowContainingElementCommand()
     {
         testCreateGRLGraph();
@@ -1278,6 +1320,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
         assertTrue(graph2.getNodes().size() == 3);        
     }  
     
+    @Test
     public void testShowLinkedElementInNewDiagramCommand()
     {
     	testCreateGRLGraph();
@@ -1399,6 +1442,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
    
     }
     
+    @Test
     public void testShowNonLeafElementsInSeparateDiagramsCommand()
     {
     	testCreateGRLGraph();
@@ -1420,6 +1464,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
      *  
      *  @author Patrice Boulet
      */
+    @Test
     public void testAlignCommand(){
     	testSetConstraintCommand();
     	testSetConstraintBoundContainerRefCompoundCommand();
@@ -1622,6 +1667,7 @@ public class JUCMNavGRLCommandTests extends TestCase {
      *  
      *  @author Patrice Boulet
      */
+    @Test
     public void testDistributeCommand(){
     	testSetConstraintCommand();
     	testSetConstraintBoundContainerRefCompoundCommand();

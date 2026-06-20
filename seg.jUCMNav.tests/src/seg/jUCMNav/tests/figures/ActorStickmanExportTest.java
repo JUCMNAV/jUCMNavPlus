@@ -11,7 +11,17 @@ import org.eclipse.swt.graphics.PaletteData;
 import org.eclipse.swt.graphics.RGB;
 import org.eclipse.swt.widgets.Display;
 
-import junit.framework.TestCase;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import seg.jUCMNav.figures.ComponentRefFigure;
 import urncore.ComponentKind;
 
@@ -43,12 +53,13 @@ import urncore.ComponentKind;
  *
  * @author Claude (QA modernization, issue #5)
  */
-public class ActorStickmanExportTest extends TestCase {
+public class ActorStickmanExportTest {
 
     private static final int PAD = 5;
     private static final int FIG = 60;
 
     /** The stickman painted directly to an off-screen GC must show all five elements. */
+    @Test
     public void testStickmanShapeDirect() {
         assertAllElementsPresent("direct SWTGraphics", render(1.0, false)); //$NON-NLS-1$
     }
@@ -60,6 +71,7 @@ public class ActorStickmanExportTest extends TestCase {
      * fix the right leg (a 2-point polyline colliding with the 2-point arms on the
      * ScaledGraphics length-keyed cache) was dropped here.
      */
+    @Test
     public void testStickmanShapeThroughScaledGraphics() {
         double[] zooms = { 1.001, 1.5, 2.0, 3.0 };
         for (int i = 0; i < zooms.length; i++) {

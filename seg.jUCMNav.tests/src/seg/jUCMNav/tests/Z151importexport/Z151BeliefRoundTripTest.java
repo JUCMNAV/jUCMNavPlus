@@ -11,7 +11,17 @@ import jakarta.xml.bind.Unmarshaller;
 
 import grl.Belief;
 import grl.GRLGraph;
-import junit.framework.TestCase;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import seg.jUCMNav.importexport.z151.generated.ObjectFactory;
 import seg.jUCMNav.importexport.z151.marshal.URNspecMHandler;
 import seg.jUCMNav.importexport.z151.unmarshal.EObjectImplUMHandler;
@@ -35,8 +45,9 @@ import urn.URNspec;
  *
  * @author Claude (QA modernization, issue #2)
  */
-public class Z151BeliefRoundTripTest extends TestCase {
+public class Z151BeliefRoundTripTest {
 
+    @Test
     public void testBeliefAuthorAndSizeSurviveRoundTrip() throws Exception {
         URNspec urnspec = ModelCreationFactory.getNewURNspec(false, true, false);
         GRLGraph graph = firstGrlGraph(urnspec);

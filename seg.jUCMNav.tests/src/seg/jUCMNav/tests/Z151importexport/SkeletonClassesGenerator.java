@@ -10,9 +10,14 @@ import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.lang.reflect.Method;
 
-import junit.framework.TestCase;
-
-public class SkeletonClassesGenerator extends TestCase {
+/**
+ * Developer-only code generator for Z.151 marshal/unmarshal skeleton handlers.
+ * It is NOT a JUnit test (its name is outside surefire's discovery pattern and,
+ * since the JUnit 3 -> 4 migration in issue #8, it no longer extends TestCase /
+ * carries @Test); the {@code testXxx} methods are run manually by a developer
+ * when the schema changes. Writes to the developer's source tree.
+ */
+public class SkeletonClassesGenerator {
 	static String jUCMNavHome = getHomeDirPath() + "\\"; //$NON-NLS-1$
 	static String generatedHome = jUCMNavHome + "\\src\\seg\\jUCMNav\\tests\\Z151importexport\\generatedSkeletonClasses\\"; //$NON-NLS-1$
 	

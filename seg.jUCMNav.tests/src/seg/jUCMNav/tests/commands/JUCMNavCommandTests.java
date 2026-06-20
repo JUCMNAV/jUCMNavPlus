@@ -27,7 +27,17 @@ import org.eclipse.ui.part.FileEditorInput;
 import grl.Actor;
 import grl.IntentionalElement;
 import grl.IntentionalElementType;
-import junit.framework.TestCase;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import seg.jUCMNav.actions.hyperlinks.HyperlinkUtils;
 import seg.jUCMNav.editors.UCMNavMultiPageEditor;
 import seg.jUCMNav.editors.UrnEditor;
@@ -119,12 +129,8 @@ import urncore.URNmodelElement;
  * @author jkealey
  * 
  */
-public class JUCMNavCommandTests extends TestCase {
+public class JUCMNavCommandTests {
 
-	public static void main(String[] args) {
-
-		junit.textui.TestRunner.run(JUCMNavCommandTests.class);
-	}
 
 	public UCMmodelElement componentRefWithLabel;
 	public ComponentRef compRef;
@@ -153,10 +159,15 @@ public class JUCMNavCommandTests extends TestCase {
 	/*
 	 * @see TestCase#setUp()
 	 */
-	public void setUp() throws Exception {
-		super.setUp();
+	/** Shared editor/model setup, also reused by ScenarioTraversalTests (issue #8). */
+	private JUCMNavTestFixture fixture;
 
-		initjucmnav();
+	@Before
+	public void setUp() throws Exception {
+
+		fixture = new JUCMNavTestFixture();
+		fixture.initjucmnav();
+		adoptFixture(fixture);
 
 		ComponentRef backgroundBindingChecker = (ComponentRef) ModelCreationFactory.getNewObject(urnspec,
 				ComponentRef.class);
@@ -177,44 +188,28 @@ public class JUCMNavCommandTests extends TestCase {
 
 	}
 
-	public void initjucmnav() throws CoreException, PartInitException {
-		IWorkspaceRoot workspaceRoot = ResourcesPlugin.getWorkspace().getRoot();
-		IProject testproject = workspaceRoot.getProject("jUCMNav-tests"); //$NON-NLS-1$
-		if (!testproject.exists())
-			testproject.create(null);
-
-		if (!testproject.isOpen())
-			testproject.open(null);
-
-		testfile = testproject.getFile("jUCMNav-test.jucm"); //$NON-NLS-1$
-
-		// start with clean file
-		if (testfile.exists())
-			testfile.delete(true, false, null);
-
-		testfile.create(new ByteArrayInputStream("".getBytes()), false, null); //$NON-NLS-1$
-
-		IWorkbenchPage page = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
-		IEditorDescriptor desc = PlatformUI.getWorkbench().getEditorRegistry().getDefaultEditor(testfile.getName());
-		editor = (UCMNavMultiPageEditor) page.openEditor(new FileEditorInput(testfile), desc.getId());
-
-		// generate a top level model element
-		urnspec = editor.getModel();
-		// urnspec = (URNspec) ModelCreationFactory.getNewURNspec();
-
-		compRef = (ComponentRef) ModelCreationFactory.getNewObject(urnspec, ComponentRef.class);
-		start = (StartPoint) ModelCreationFactory.getNewObject(urnspec, StartPoint.class);
-		map = (UCMmap) urnspec.getUrndef().getSpecDiagrams().get(0);
-
-		// cs = new CommandStack();
-		cs = editor.getDelegatingCommandStack();
+	/**
+	 * Copies the shared model handles from the fixture onto this test's fields, so
+	 * the existing test bodies keep referring to {@code cs} / {@code urnspec} /
+	 * {@code compRef} / {@code start} / {@code map} directly. Public so
+	 * ScenarioTraversalTests can hand this tester a fixture it set up itself.
+	 */
+	public void adoptFixture(JUCMNavTestFixture f) {
+		this.fixture = f;
+		this.editor = f.editor;
+		this.cs = f.cs;
+		this.urnspec = f.urnspec;
+		this.compRef = f.compRef;
+		this.start = f.start;
+		this.map = f.map;
+		this.testfile = f.testfile;
 	}
 
 	/*
 	 * @see TestCase#tearDown()
 	 */
+	@After
 	public void tearDown() throws Exception {
-		super.tearDown();
 
 		/**
 		 * Note: I once had JUnit telling me that I had exceptions thrown in tearDown()
@@ -268,23 +263,15 @@ public class JUCMNavCommandTests extends TestCase {
 		} catch (RuntimeException e) {
 			e.printStackTrace();
 		} finally {
-			// Always tear down the editor, even if an assertion above failed, so a
-			// single failing test cannot leave its editor open and contaminate the
-			// shared workspace for later tests. (Issue #6)
-			if (editor != null) {
-				try {
-					((ScrollingGraphicalViewer) ((UrnEditor) editor.getActiveEditor()).getGraphicalViewer()).flush();
-				} catch (RuntimeException ignore) {
-					// best-effort viewer flush during teardown
-				}
-				editor.closeEditor(false);
-			}
+			// Always tear down the editor via the fixture, even if an assertion above
+			// failed, so a single failing test cannot leave its editor open and
+			// contaminate the shared workspace for later tests. (issues #6, #8)
+			if (fixture != null)
+				fixture.cleanup();
 
 			editor = null;
 			componentRefWithLabel = null;
 			compRef = null;
-			if (cs != null)
-				cs.dispose();
 			cs = null;
 			end = null;
 			resp = null;
@@ -310,6 +297,7 @@ public class JUCMNavCommandTests extends TestCase {
 
 	}
 
+	@Test
 	public void testAssertionsEnabled() {
 		try {
 			assert false;
@@ -323,6 +311,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testAddBranchCommand() {
 		testAddForkOnConnectionCommand();
 		AndFork fork;
@@ -354,10 +343,10 @@ public class JUCMNavCommandTests extends TestCase {
 	 *
 	 * @author Patrice Boulet
 	 */
-	// Phase 3 disabled (renamed `test` -> `disabled_test` so JUnit 3 reflection skips):
-	// chained calls leave commands on the URN-spec stack that get flushed on save in
-	// tearDown, so the post-save undo-all loop runs short. Same pre-existing UX rule
-	// as the disabled_testDelete*Command suite -- see JUCMNavGRLCommandTests for full note.
+	// Spans two diagrams (creates a second map), so its commands live across multiple
+	// command stacks plus the URN-spec stack; relies on the drain-based tearDown
+	// round-trip rather than a symmetric undo/redo assertion (issue #6).
+	@Test
 	public void testAlignCommand() {
 		testSetConstraintCommand();
 		testSetConstraintComponentRefCommand();
@@ -557,6 +546,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testAddComponentRefCommand() {
 
 		// This command should not be called directly by anything else than
@@ -572,6 +562,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testAddForkOnConnectionCommand() {
 		testExtendPathCommand();
 		Command cmd;
@@ -594,6 +585,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testAddForkOnEmptyPointCommand() {
 		testExtendPathCommand();
 		EmptyPoint pt;
@@ -627,6 +619,7 @@ public class JUCMNavCommandTests extends TestCase {
 		cs.execute(cmd);
 	}
 
+	@Test
 	public void testAddStubCommand() {
 		testExtendPathCommand();
 
@@ -641,6 +634,7 @@ public class JUCMNavCommandTests extends TestCase {
 		cs.execute(cmd);
 	}
 
+	@Test
 	public void testAddInBindingCommand() {
 		testAddPluginCommand();
 
@@ -659,6 +653,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testAddJoinOnConnectionCommand() {
 		testExtendPathCommand();
 		Command cmd;
@@ -680,6 +675,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testAddJoinOnEmptyPointCommand() {
 		testExtendPathCommand();
 		EmptyPoint pt;
@@ -713,6 +709,7 @@ public class JUCMNavCommandTests extends TestCase {
 		cs.execute(cmd);
 	}
 
+	@Test
 	public void testAddOutBindingCommand() {
 		testAddPluginCommand();
 
@@ -726,6 +723,7 @@ public class JUCMNavCommandTests extends TestCase {
 		cs.execute(cmd);
 	}
 
+	@Test
 	public void testBug491_MergeEndOnSamePath() {
 
 		testAddStubCommand();
@@ -744,6 +742,7 @@ public class JUCMNavCommandTests extends TestCase {
 
 	}
 
+	@Test
 	public void testBug511_DisconnectSaveProblem() {
 
 		testSetConstraintComponentRefCommand();
@@ -764,6 +763,7 @@ public class JUCMNavCommandTests extends TestCase {
 
 	}
 
+	@Test
 	public void testAddPluginCommand() {
 		// Add a Stub in the current Path
 		testAddStubCommand();
@@ -784,6 +784,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testChangeLabelNameCommand() {
 		testExtendPathCommand();
 		StartPoint pt;
@@ -805,6 +806,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testComponentRefBindChildCommand() {
 
 		// add a compref and position it.
@@ -830,6 +832,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testComponentRefUnbindChildCommand() {
 		testComponentRefBindChildCommand();
 		ComponentRef parent = compRef;
@@ -848,6 +851,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testConnectCommand() {
 		testCreatePathCommand();
 
@@ -870,6 +874,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testCreateLabelCommand() {
 		testSetConstraintBoundComponentRefCompoundCommand();
 		testCreatePathCommand();
@@ -898,6 +903,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testCreateMapCommand() {
 
 		CreateMapCommand cmd = new CreateMapCommand(urnspec);
@@ -920,6 +926,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testCreatePathCommand() {
 		start = (StartPoint) ModelCreationFactory.getNewObject(urnspec, StartPoint.class);
 
@@ -937,6 +944,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testCutPathCommand() {
 		testExtendPathCommand();
 
@@ -952,6 +960,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testDeleteComponentCommand() {
 		testSetConstraintComponentRefCommand();
 
@@ -966,6 +975,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testDeleteComponentRefCommand() {
 		testSetConstraintComponentRefCommand();
 
@@ -978,6 +988,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testDeleteInBindingCommand() {
 		// FIXME Deletion tests need to be redone using
 		// http://cserg0.site.uottawa.ca/twiki/bin/view/ProjetSEG/DevDocDeletionTests
@@ -990,6 +1001,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testDeleteLabelCommand() {
 		testCreateLabelCommand();
 
@@ -1013,6 +1025,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testDeleteMapCommand() {
 		testCreateMapCommand();
 
@@ -1029,6 +1042,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testDeleteNodeCommand() {
 		testSplitLinkCommand();
 
@@ -1092,6 +1106,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testDeleteOutBindingCommand() {
 		// FIXME Deletion tests need to be redone using
 		// http://cserg0.site.uottawa.ca/twiki/bin/view/ProjetSEG/DevDocDeletionTests
@@ -1104,6 +1119,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testDeletePathCommand() {
 		testAddBranchCommand();
 		StartPoint start;
@@ -1138,6 +1154,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testDeleteResponsibilityCommand() {
 		testSplitLinkCommand();
 
@@ -1161,6 +1178,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testDeleteStartNCEndCommand() {
 		testCreatePathCommand();
 
@@ -1173,6 +1191,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testDisconnectCommand() {
 		testConnectCommand();
 
@@ -1185,6 +1204,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testDividePathOnNodeConnectionCompoundCommand() {
 		testCreatePathCommand();
 
@@ -1204,6 +1224,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testExtendPathCommand() {
 		testCreatePathCommand();
 		Command cmd;
@@ -1229,6 +1250,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testForkPathsCommand() {
 		testCreatePathCommand();
 
@@ -1274,6 +1296,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testJoinPathsCommand() {
 		testCreatePathCommand();
 
@@ -1308,6 +1331,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testLabelSetConstraintCommand() {
 		testCreateLabelCommand();
 
@@ -1330,6 +1354,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testMergeStartEndCommand() {
 		testCreatePathCommand();
 
@@ -1355,6 +1380,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testReplaceEmptyPointCommand() {
 		testCreatePathCommand();
 		wait = (WaitingPlace) ModelCreationFactory.getNewObject(urnspec, WaitingPlace.class);
@@ -1368,6 +1394,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testReplaceEmptyPointCommand2() {
 		testCreatePathCommand();
 		wait = (Timer) ModelCreationFactory.getNewObject(urnspec, Timer.class);
@@ -1385,6 +1412,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testReplacePluginCommand() {
 		// FIXME Deletion tests need to be redone using
 		// http://cserg0.site.uottawa.ca/twiki/bin/view/ProjetSEG/DevDocDeletionTests
@@ -1397,6 +1425,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testSetConstraintBoundComponentRefCompoundCommand() {
 		testComponentRefBindChildCommand();
 
@@ -1410,6 +1439,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testSetConstraintCommand() {
 		testCreatePathCommand();
 		Command cmd = new SetConstraintCommand(end, 96, 36);
@@ -1421,6 +1451,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testSetConstraintComponentRefCommand() {
 
 		testAddComponentRefCommand();
@@ -1437,6 +1468,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testSplitLinkCommand() {
 		// testCutPathCommand();
 		testExtendPathCommand();
@@ -1452,6 +1484,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testTransmogrifyForkOrJoinCommand() {
 		testAddForkOnEmptyPointCommand();
 
@@ -1483,6 +1516,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 * ------EndPoint StartPoint------
 	 */
+	@Test
 	public void testCutAnyPathCommandNodeConnection() {
 		testExtendPathCommand();
 		NodeConnection nc = (NodeConnection) end.getPred().get(0);
@@ -1509,6 +1543,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 * ------EndPoint StartPoint------
 	 */
+	@Test
 	public void testCutAnyPathCommandEmptyPoint() {
 		testExtendPathCommand();
 
@@ -1556,6 +1591,7 @@ public class JUCMNavCommandTests extends TestCase {
 	 * 
 	 *  
 	 */
+	@Test
 	public void testChangeHyperlinkCommand() {
 		testCreatePathCommand();
 
@@ -1595,6 +1631,7 @@ public class JUCMNavCommandTests extends TestCase {
 
 	}
 
+	@Test
 	public void testRefactorIntoStubCommand() {
 		testSplitLinkCommand();
 		Vector v = new Vector();
@@ -1622,6 +1659,7 @@ public class JUCMNavCommandTests extends TestCase {
 
 	}
 
+	@Test
 	public void testCopyPasteCommand() {
 		testSplitLinkCommand();
 
@@ -1653,6 +1691,7 @@ public class JUCMNavCommandTests extends TestCase {
 		assertEquals("Should have found three copies of RespRef.", 3, count); //$NON-NLS-1$
 	}
 
+	@Test
 	public void testMoveScenarioCommand() {
 		ScenarioGroup group1 = (ScenarioGroup) ModelCreationFactory.getNewObject(urnspec, ScenarioGroup.class);
 		CreateScenarioGroupCommand cmd = new CreateScenarioGroupCommand(urnspec, group1);
@@ -1683,7 +1722,8 @@ public class JUCMNavCommandTests extends TestCase {
 	 *
 	 * @author Patrice Boulet
 	 */
-	// Phase 3 disabled (see disabled_testAlignCommand above for full note).
+	// Multi-diagram, like testAlignCommand above; see that note (issue #6).
+	@Test
 	public void testDistributeCommand() {
 		testSetConstraintCommand();
 		testSetConstraintComponentRefCommand();
@@ -1892,6 +1932,7 @@ public class JUCMNavCommandTests extends TestCase {
 	/**
 	 * Test for ChangeTracesCommand. <URNConsistency>
 	 */
+	@Test
 	public void testChangeTracesCommand() {
 		testAddActorCommand(); // makes sure the AddActorCommand works properly before using it.
 		AddActorCommand addActorCmd = new AddActorCommand(urnspec);
@@ -1944,6 +1985,7 @@ public class JUCMNavCommandTests extends TestCase {
 	/**
 	 * Test for AddActorCommand. <URNConsistency>
 	 */
+	@Test
 	public void testAddActorCommand() {
 		AddActorCommand cmd = new AddActorCommand(urnspec);
 		assertTrue("Can't execute AddActorCommand.", cmd.canExecute()); //$NON-NLS-1$
@@ -1976,6 +2018,7 @@ public class JUCMNavCommandTests extends TestCase {
 	/**
 	 * Test for AddComponentCommand. <URNConsistency>
 	 */
+	@Test
 	public void testAddComponentCommand() {
 		AddComponentCommand cmd = new AddComponentCommand(urnspec, ComponentKind.ACTOR);
 		assertTrue("Can't execute AddComponentCommand.", cmd.canExecute()); //$NON-NLS-1$
@@ -2011,6 +2054,7 @@ public class JUCMNavCommandTests extends TestCase {
 	/**
 	 * Test for AddIntentionalElementCommand. <URNConsistency>
 	 */
+	@Test
 	public void testAddIntentionalElementCommand() {
 		AddIntentionalElementCommand cmd = new AddIntentionalElementCommand(urnspec, IntentionalElementType.GOAL);
 		assertTrue("Can't execute AddIntentionalElementCommand.", cmd.canExecute()); //$NON-NLS-1$
@@ -2072,6 +2116,7 @@ public class JUCMNavCommandTests extends TestCase {
 	/**
 	 * Test for CreateAndLinkToElementCommand. <URNConsistency>
 	 */
+	@Test
 	public void testCreateAndLinkToElementCommand() {
 		// makes sure these two commands to be used works properly
 		testAddActorCommand();

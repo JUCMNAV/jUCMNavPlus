@@ -2,7 +2,17 @@ package seg.jUCMNav.tests.scenarios;
 
 import java.io.StringReader;
 
-import junit.framework.TestCase;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import seg.jUCMNav.scenarios.ScenarioUtils;
 import seg.jUCMNav.scenarios.evaluator.UcmExpressionEvaluator;
 import seg.jUCMNav.scenarios.model.UcmEnvironment;
@@ -20,7 +30,7 @@ import seg.jUCMNav.scenarios.parser.jUCMNavTypeChecker;
  * If you know this test should fail (because of invalid syntax), set shouldFail to true before invoking parse()
  * 
  */
-public class jUCMNavParserTest extends TestCase {
+public class jUCMNavParserTest {
     static jUCMNavParser parser = ScenarioUtils.parser;
     static int i = 0;
     boolean shouldFail;
@@ -28,8 +38,8 @@ public class jUCMNavParserTest extends TestCase {
     boolean result;
     UcmEnvironment env;
 
-    protected void setUp() throws Exception {
-        super.setUp();
+    @Before
+    public void setUp() throws Exception {
         shouldFail = false;
 
         env = new UcmEnvironment(null);
@@ -58,8 +68,8 @@ public class jUCMNavParserTest extends TestCase {
 
     }
 
-    protected void tearDown() throws Exception {
-        super.tearDown();
+    @After
+    public void tearDown() throws Exception {
     }
 
     protected SimpleNode parse(String str) {
@@ -137,128 +147,150 @@ public class jUCMNavParserTest extends TestCase {
      * 
      * START OF BOOLEAN ONLY TESTS
      */
+    @Test
     public void testBoolean() {
         result = true;
         parse("true"); //$NON-NLS-1$
 
     }
 
+    @Test
     public void testVariable() {
         result = true;
         parse("jasonKealey"); //$NON-NLS-1$
     }
 
+    @Test
     public void testNegation() {
         result = false;
         parse("not true"); //$NON-NLS-1$
         parse("! true"); //$NON-NLS-1$
     }
 
+    @Test
     public void testNegation2() {
         result = false;
         parse("not(true)"); //$NON-NLS-1$
         parse("!(true)"); //$NON-NLS-1$
     }
 
+    @Test
     public void testNegation3() {
         result = true;
         parse("not not(true)"); //$NON-NLS-1$
         parse("! !(true)"); //$NON-NLS-1$
     }
 
+    @Test
     public void testConjunction() {
         result = false;
         parse("true and false"); //$NON-NLS-1$
         parse("true && false"); //$NON-NLS-1$
     }
 
+    @Test
     public void testConjunction2() {
         result = false;
         parse("(true and false ) and x"); //$NON-NLS-1$
         parse("(true && false) && x"); //$NON-NLS-1$
     }
 
+    @Test
     public void testConjunction3() {
         result = false;
         parse("true and false and x"); //$NON-NLS-1$
         parse("true && false && x"); //$NON-NLS-1$
     }
 
+    @Test
     public void testConjunction4() {
         result = false;
         parse("true and (not y) and x"); //$NON-NLS-1$
         parse("true && (! y) && x"); //$NON-NLS-1$
     }
 
+    @Test
     public void testConjunction5() {
         result = false;
         parse("not true and (not y) and x"); //$NON-NLS-1$
         parse("! true && (!y) && x"); //$NON-NLS-1$
     }
 
+    @Test
     public void testDisjunction() {
         result = true;
         parse("false or true"); //$NON-NLS-1$
         parse("false || true"); //$NON-NLS-1$
     }
 
+    @Test
     public void testDisjunction2() {
         result = false;
         parse("x and y or z and w"); //$NON-NLS-1$
         parse("x && y || z && w"); //$NON-NLS-1$
     }
 
+    @Test
     public void testDisjunction3() {
         result = false;
         parse("x and (y or z) and w"); //$NON-NLS-1$
         parse("x && (y || z) && w"); //$NON-NLS-1$
     }
 
+    @Test
     public void testImplication() {
         result = true;
         parse("x => y"); //$NON-NLS-1$
     }
 
+    @Test
     public void testImplication2() {
         result = true;
         parse("x => y or z"); //$NON-NLS-1$
         parse("x => y || z"); //$NON-NLS-1$
     }
 
+    @Test
     public void testImplication3() {
         result = true;
         parse("not x => x => z"); //$NON-NLS-1$
         parse("!x => x => z"); //$NON-NLS-1$
     }
 
+    @Test
     public void testParenthesis() {
         result = false;
         parse("((((x))))"); //$NON-NLS-1$
     }
 
+    @Test
     public void testXOR1() {
         result = false;
         parse("x xor y"); //$NON-NLS-1$
         parse("x ^ y"); //$NON-NLS-1$
     }
 
+    @Test
     public void testXOR2() {
         result = false;
         parse("x xor y xor z"); //$NON-NLS-1$
         parse("x ^ y ^ z"); //$NON-NLS-1$
     }
 
+    @Test
     public void testXOR3() {
         result = true;
         parse("x and y or z xor w and jason xor kealey or daigle"); //$NON-NLS-1$
         parse("x && y || z ^ w && jason ^ kealey || daigle"); //$NON-NLS-1$
     }
 
+    @Test
     public void testComments() {
         result = true;
         parse("daigle => /* jason */ kealey"); //$NON-NLS-1$
     }
 
+    @Test
     public void testComments2() {
         result = true;
         parse("daigle => kealey // kealey\n"); //$NON-NLS-1$
@@ -269,18 +301,21 @@ public class jUCMNavParserTest extends TestCase {
     // parse("daigle => kealey // kealey");
     // }
 
+    @Test
     public void testEquality() {
         result = true;
         parse("jason=kealey"); //$NON-NLS-1$
         parse("jason==kealey"); //$NON-NLS-1$
     }
 
+    @Test
     public void testEquality2() {
         result = true;
         parse("(jason=kealey) /= not daigle"); //$NON-NLS-1$
         parse("(jason==kealey) != !daigle"); //$NON-NLS-1$
     }
 
+    @Test
     public void testEquality3() {
         // do not need need parenthesis
         result = true;
@@ -288,11 +323,13 @@ public class jUCMNavParserTest extends TestCase {
         parse("jason==kealey != ! daigle"); //$NON-NLS-1$
     }
 
+    @Test
     public void testEquality4() {
         result = false;
         parse("jason==kealey==w!=y"); //$NON-NLS-1$
     }
 
+    @Test
     public void testEquality5() {
         result = false;
         parse("jason==(kealey==(w!=y))"); //$NON-NLS-1$
@@ -308,41 +345,49 @@ public class jUCMNavParserTest extends TestCase {
      * START OF INVALID SYNTAX TESTS
      */
 
+    @Test
     public void testInvalidSyntax1() {
         shouldFail = true;
         parse("(x"); //$NON-NLS-1$
     }
 
+    @Test
     public void testInvalidSyntax2() {
         shouldFail = true;
         parse("=> x"); //$NON-NLS-1$
     }
 
+    @Test
     public void testInvalidSyntax3() {
         shouldFail = true;
         parse("jason => kealey kealey"); //$NON-NLS-1$
     }
 
+    @Test
     public void testInvalidSyntax4() {
         shouldFail = true;
         parse("jason => kealey /* kealey"); //$NON-NLS-1$
     }
 
+    @Test
     public void testInvalidSyntax5() {
         shouldFail = true;
         parse("jason <> kealey"); //$NON-NLS-1$
     }
 
+    @Test
     public void testInvalidSyntax6() {
         shouldFail = true;
         parse("jason >< kealey"); //$NON-NLS-1$
     }
 
+    @Test
     public void testInvalidSyntax7() {
         shouldFail = true;
         parse("jason << kealey"); //$NON-NLS-1$
     }
 
+    @Test
     public void testInvalidSyntax8() {
         shouldFail = true;
         parse("jason >> kealey"); //$NON-NLS-1$
@@ -358,127 +403,152 @@ public class jUCMNavParserTest extends TestCase {
      * START OF INTEGER ONLY TESTS
      */
 
+    @Test
     public void testRelationalExpression1() {
         result = false;
         parse("iJason<iKealey"); //$NON-NLS-1$
 
     }
 
+    @Test
     public void testRelationalExpression2() {
         result = true;
         parse("i <= j"); //$NON-NLS-1$
     }
 
+    @Test
     public void testRelationalExpression3() {
         result = true;
         parse("iJason > iKealey"); //$NON-NLS-1$
     }
 
+    @Test
     public void testRelationalExpression4() {
         result = true;
         parse("iJason >= iKealey"); //$NON-NLS-1$
     }
 
+    @Test
     public void testRelationalExpression5() {
         result = false;
         parse("1 >= 8"); //$NON-NLS-1$
     }
 
+    @Test
     public void testRelationalExpression6() {
         result = true;
         parse("0 < 8"); //$NON-NLS-1$
     }
 
+    @Test
     public void testRelationalExpression7() {
         result = false;
         parse("-j > 0"); //$NON-NLS-1$
     }
 
+    @Test
     public void testComparison1() {
         result = true;
         parse("1=(1)"); //$NON-NLS-1$
     }
 
+    @Test
     public void testComparison2() {
         result = true;
         parse(" -(1+2) != -1 "); //$NON-NLS-1$
     }
 
+    @Test
     public void testComparison3() {
         result = true;
         parse(" 1 == 1 == true != false "); //$NON-NLS-1$
     }
 
+    @Test
     public void testAddition1() {
         result = true;
         parse("1+1=2"); //$NON-NLS-1$
     }
 
+    @Test
     public void testAddition2() {
         result = true;
         parse("1-1/=2"); //$NON-NLS-1$
     }
 
+    @Test
     public void testAddition3() {
         result = false;
         parse("0+-1==3"); //$NON-NLS-1$
     }
 
+    @Test
     public void testAddition4() {
         result = true;
         parse("0-+1!=5"); //$NON-NLS-1$
     }
 
+    @Test
     public void testAddition5() {
         result = true;
         parse("2+3+4++5>=0"); //$NON-NLS-1$
     }
 
+    @Test
     public void testAddition6() {
         result = true;
         parse("-1<2"); //$NON-NLS-1$
     }
 
+    @Test
     public void testAddition7() {
         result = false;
         parse("3++3--2==i"); //$NON-NLS-1$
     }
 
+    @Test
     public void testAddition8() {
         result = false;
         parse("-iJason=iKealey"); //$NON-NLS-1$
     }
 
+    @Test
     public void testAddition9() {
         result = true;
         parse("-iJason+iKealey/=3"); //$NON-NLS-1$
     }
 
+    @Test
     public void testAddition10() {
         result = false;
         parse("(iJason+iKealey)-3=0"); //$NON-NLS-1$
     }
 
+    @Test
     public void testMultiplication1() {
         result = true;
         parse("2*3/=3"); //$NON-NLS-1$
     }
 
+    @Test
     public void testMultiplication2() {
         result = true;
         parse("2*3+2/=3"); //$NON-NLS-1$
     }
 
+    @Test
     public void testMultiplication3() {
         result = true;
         parse("2+3*2/=3"); //$NON-NLS-1$
     }
 
+    @Test
     public void testMultiplication4() {
         result = true;
         parse("2*3+2/=3=true"); //$NON-NLS-1$
     }
 
+    @Test
     public void testMultiplication5() {
         result = true;
         parse("2*-3+2/=3=true"); //$NON-NLS-1$
@@ -494,11 +564,13 @@ public class jUCMNavParserTest extends TestCase {
      * START OF ENUMERATION ONLY TESTS
      */
 
+    @Test
     public void testEnum1() {
         result = false;
         parse("appState == DONE"); //$NON-NLS-1$
     }
 
+    @Test
     public void testEnum2() {
         result = true;
         parse("appState == INITIAL"); // naming conflict //$NON-NLS-1$
@@ -507,6 +579,7 @@ public class jUCMNavParserTest extends TestCase {
 
     }
 
+    @Test
     public void testEnum3() {
         result = false;
         parse("admissionState == DENIED"); //$NON-NLS-1$
@@ -515,21 +588,25 @@ public class jUCMNavParserTest extends TestCase {
 
     }
 
+    @Test
     public void testEnum4() {
         result = true;
         parse("admissionState == INITIAL"); // naming conflict //$NON-NLS-1$
     }
 
+    @Test
     public void testEnum5() {
         result = true;
         parse("appState == appState"); //$NON-NLS-1$
     }
 
+    @Test
     public void testEnum6() {
         result = true;
         parse("DONE==DONE"); //$NON-NLS-1$
     }
 
+    @Test
     public void testEnum7() {
         result = true;
         parse("INITIAL == INITIAL"); // naming conflict //$NON-NLS-1$
@@ -545,26 +622,31 @@ public class jUCMNavParserTest extends TestCase {
      * START OF MIXED TESTS
      */
 
+    @Test
     public void testComplex1() {
         result = false;
         parse("(iKealey+1=0)and (iKealey-iJason/=0)"); //$NON-NLS-1$
     }
 
+    @Test
     public void testComplex2() {
         result = false;
         parse("iKealey+1=0 and iKealey-iJason/=0"); //$NON-NLS-1$
     }
 
+    @Test
     public void testComplex3() {
         result = false;
         parse("true == false != (1 == 0) "); //$NON-NLS-1$
     }
 
+    @Test
     public void testComplex4() {
         result = false;
         parse("i == 213 != (1 == 0) "); //$NON-NLS-1$
     }
 
+    @Test
     public void testComplex5() {
         result = false;
         parse("0++i*-j==0 && jason"); //$NON-NLS-1$
@@ -579,96 +661,115 @@ public class jUCMNavParserTest extends TestCase {
      * 
      * START OF TYPE CHECKING TESTS
      */
+    @Test
     public void testInvalidRelationalExpression1() {
         shouldFail = true;
         parse("jason > false"); //$NON-NLS-1$
     }
 
+    @Test
     public void testInvalidRelationalExpression2() {
         shouldFail = true;
         parse("true > false"); //$NON-NLS-1$
     }
 
+    @Test
     public void testInvalidRelationalExpression3() {
         shouldFail = true;
         parse("true > 1"); //$NON-NLS-1$
     }
 
+    @Test
     public void testInvalidAddition1() {
         shouldFail = true;
         parse("false + 1"); //$NON-NLS-1$
     }
 
+    @Test
     public void testInvalidAddition2() {
         shouldFail = true;
         parse("1+++++++0---094194++3-kealey/=0"); //$NON-NLS-1$
     }
 
+    @Test
     public void testInvalidAddition3() {
         shouldFail = true;
         parse("3++-3-2"); //$NON-NLS-1$
     }
 
+    @Test
     public void testInvalidAddition4() {
         shouldFailTypeCheck = true;
         parse("0+-1"); //$NON-NLS-1$
     }
 
+    @Test
     public void testInvalidAddition5() {
         shouldFailTypeCheck = true;
         parse("0-+1"); //$NON-NLS-1$
     }
 
+    @Test
     public void testToBeHandledByTypeChecker1() {
         shouldFailTypeCheck = true;
         parse("(x or y) + 1 == 0"); //$NON-NLS-1$
     }
 
+    @Test
     public void testToBeHandledByTypeChecker2() {
         shouldFailTypeCheck = true;
         parse("(x + 1) or y == i"); //$NON-NLS-1$
     }
 
+    @Test
     public void testToBeHandledByTypeChecker3() {
         shouldFailTypeCheck = true;
         parse("1+kealey"); //$NON-NLS-1$
     }
 
+    @Test
     public void testToBeHandledByTypeChecker4() {
         shouldFailTypeCheck = true;
         parse("0"); //$NON-NLS-1$
     }
 
+    @Test
     public void testToBeHandledByTypeChecker5() {
         shouldFailTypeCheck = true;
         parse("true == false != 1"); //$NON-NLS-1$
     }
 
+    @Test
     public void testToBeHandledByTypeChecker6() {
         shouldFailTypeCheck = true;
         parse("1 == 2 != 1"); //$NON-NLS-1$
     }
 
+    @Test
     public void testToBeHandledByTypeChecker7() {
         shouldFailTypeCheck = true;
         parse("(iKealey+1=0)and (kealey-jason/=0)"); //$NON-NLS-1$
     }
 
+    @Test
     public void testToBeHandledByTypeChecker8() {
         shouldFailTypeCheck = true;
         parse("true=1"); //$NON-NLS-1$
     }
 
+    @Test
     public void testToBeHandledByTypeChecker9() {
         shouldFailTypeCheck = true;
         parse("(iKealey+1 and iKealey-iJason)/=0"); //$NON-NLS-1$
     }
 
+    @Test
     public void testEnumInvalid1() {
         shouldFailTypeCheck = true;
         parse("appState == admissionState"); //$NON-NLS-1$
     }
 
+    @Test
     public void testEnumInvalid2() {
         shouldFailTypeCheck = true;
         parse("DONE == DENIED"); //$NON-NLS-1$
@@ -683,68 +784,81 @@ public class jUCMNavParserTest extends TestCase {
      * 
      * START OF RESPONSIBILITY TESTS
      */
+    @Test
     public void testAssignment1() {
         parseResponsibility("x:=true;"); //$NON-NLS-1$
         parseResponsibility("x=true;"); //$NON-NLS-1$
         assertEquals(env.getValue("x"), Boolean.TRUE); //$NON-NLS-1$
     }
 
+    @Test
     public void testAssignment2() {
         parseResponsibility("iJason=iKealey;"); //$NON-NLS-1$
         assertEquals(env.getValue("iJason"), Integer.valueOf(-3)); //$NON-NLS-1$
     }
 
+    @Test
     public void testAssignment3() {
         parseResponsibility("x=!y;"); //$NON-NLS-1$
         assertEquals(env.getValue("x"), Boolean.TRUE); //$NON-NLS-1$
     }
 
+    @Test
     public void testAssignment4() {
         parseResponsibility("x=(true && !(false || x xor y));"); //$NON-NLS-1$
         assertEquals(env.getValue("x"), Boolean.TRUE); //$NON-NLS-1$
     }
 
+    @Test
     public void testAssignment5() {
         parseResponsibility("appState=DONE;"); //$NON-NLS-1$
         assertEquals(env.getValue("appState"), env.getValue("DONE")); //$NON-NLS-1$ //$NON-NLS-2$
     }
 
+    @Test
     public void testAssignment6() {
         testAssignment5();
         parseResponsibility("appState=INITIAL;"); // naming ambiguity //$NON-NLS-1$
         assertEquals(env.getValue("appState"), env.getValue("INITIAL")); //$NON-NLS-1$ //$NON-NLS-2$
     }
 
+    @Test
     public void testInvalidAssignment1() {
         shouldFail = true;
         parseResponsibility("x=true"); //$NON-NLS-1$
     }
 
+    @Test
     public void testInvalidAssignment2() {
         shouldFailTypeCheck = true;
         parseResponsibility("x=1;"); //$NON-NLS-1$
     }
 
+    @Test
     public void testInvalidAssignment3() {
         shouldFail = true;
         parseResponsibility("x==true;"); //$NON-NLS-1$
     }
 
+    @Test
     public void testInvalidAssignment4() {
         shouldFailTypeCheck = true;
         parseResponsibility("x=iJason;"); //$NON-NLS-1$
     }
 
+    @Test
     public void testInvalidAssignment5() {
         shouldFailTypeCheck = true;
         parseResponsibility("appState=admissionState;"); //$NON-NLS-1$
     }
 
+    @Test
     public void testInvalidAssignment6() {
         shouldFailTypeCheck = true;
         parseResponsibility("appState=INVITED;"); //$NON-NLS-1$
     }
 
+    @Test
     public void testIfStatement1() {
         parseResponsibility("if (iJason==2) i=-iJason;"); //$NON-NLS-1$
         parseResponsibility("if (iJason==2)\n i=-iJason;"); //$NON-NLS-1$
@@ -753,12 +867,14 @@ public class jUCMNavParserTest extends TestCase {
         assertEquals(env.getValue("i"), Integer.valueOf(-2)); //$NON-NLS-1$
     }
 
+    @Test
     public void testIfStatement2() {
         parseResponsibility("if (iJason==3) x=y; else iJason=i;"); //$NON-NLS-1$
         assertEquals(env.getValue("iJason"), Integer.valueOf(3)); //$NON-NLS-1$
 
     }
 
+    @Test
     public void testIfStatement3() {
         parseResponsibility("if (iJason==3) { x=y; } else {iJason=i;}"); //$NON-NLS-1$
         parseResponsibility("if (iJason==3) {\n x=y; \n} else {\n iJason=i;\n}"); //$NON-NLS-1$
@@ -766,6 +882,7 @@ public class jUCMNavParserTest extends TestCase {
 
     }
 
+    @Test
     public void testIfStatement4() {
         // last two assignments are not in if
         parseResponsibility("if (x) i=iJason;iJason=iKealey;iKealey=i;"); //$NON-NLS-1$
@@ -774,6 +891,7 @@ public class jUCMNavParserTest extends TestCase {
         assertEquals(env.getValue("i"), Integer.valueOf(3)); //$NON-NLS-1$
     }
 
+    @Test
     public void testIfStatement5() {
         parseResponsibility("if (x) { i=iJason;iJason=iKealey;iKealey=i; }"); //$NON-NLS-1$
         assertEquals(env.getValue("iJason"), Integer.valueOf(2)); //$NON-NLS-1$
@@ -781,6 +899,7 @@ public class jUCMNavParserTest extends TestCase {
         assertEquals(env.getValue("i"), Integer.valueOf(3)); //$NON-NLS-1$
     }
 
+    @Test
     public void testIfStatement6() {
         parseResponsibility("if (!x) { i=iJason;iJason=iKealey;iKealey=i; } else x=true;"); //$NON-NLS-1$
         assertEquals(env.getValue("iJason"), Integer.valueOf(-3)); //$NON-NLS-1$
@@ -789,6 +908,7 @@ public class jUCMNavParserTest extends TestCase {
         assertEquals(env.getValue("x"), Boolean.FALSE); //$NON-NLS-1$
     }
 
+    @Test
     public void testInvalidIfStatement1() {
         shouldFailTypeCheck = true;
         parseResponsibility("if (iJason==3) x=iJason;"); //$NON-NLS-1$
@@ -797,22 +917,26 @@ public class jUCMNavParserTest extends TestCase {
         parseResponsibility("if iJason==3 x=iJason;"); //$NON-NLS-1$
     }
 
+    @Test
     public void testInvalidIfStatement2() {
         shouldFail = true;
         parseResponsibility("if (iJason==3) x=iJason"); //$NON-NLS-1$
     }
 
+    @Test
     public void testInvalidIfStatement3() {
         shouldFail = true;
         parseResponsibility("if iJason==3 else x=iJason;"); //$NON-NLS-1$
     }
 
+    @Test
     public void testInvalidIfStatement4() {
         // else not in if
         shouldFail = true;
         parseResponsibility("if (!x) i=iJason;iJason=iKealey;iKealey=i; else i=0;"); //$NON-NLS-1$
     }
 
+    @Test
     public void testSequence1() {
         parseResponsibility("i=1;j=2;k=3; { iJason=i+j*k; }"); //$NON-NLS-1$
         assertEquals(env.getValue("i"), Integer.valueOf(1)); //$NON-NLS-1$
@@ -822,6 +946,7 @@ public class jUCMNavParserTest extends TestCase {
 
     }
 
+    @Test
     public void testComplexResponsibility1() {
         parseResponsibility("iJason=3;\n if (iJason==3) {\n iJason=iJason+1;\n x=true; \n} else if (iJason=(-4))\n iJason:=0;  \nelse\n iJason=0;"); //$NON-NLS-1$
         assertEquals(env.getValue("iJason"), Integer.valueOf(4)); //$NON-NLS-1$
@@ -834,6 +959,7 @@ public class jUCMNavParserTest extends TestCase {
     
     
     // initial is now both a variable (bool) and an enumeration value
+    @Test
     public void testHybridType1()
     {
         parseResponsibility("appState=INITIAL;"); // naming ambiguity //$NON-NLS-1$
