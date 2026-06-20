@@ -7,6 +7,8 @@ editor and analysis tool combining **Use Case Maps (UCM)** and the
 **Goal-oriented Requirements Language (GRL)**. Built on EMF (model), GEF
 Classic (diagram editors), and MDT/OCL (constraints).
 
+<img width="1917" height="1008" alt="jUCMNav" src="https://github.com/user-attachments/assets/dd26fec9-23ad-486a-a10e-f8c323f09161" />
+
 ## Status
 
 **Modernization complete and shipping from `master`.** jUCMNav now builds,
