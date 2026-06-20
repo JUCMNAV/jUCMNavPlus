@@ -177,7 +177,12 @@ public class ListDefinitionReferencesAction extends URNSelectionAction {
             }
 
             public void dispose() {
-                if (getCreatedMenu() != null) {
+                // During the workbench dispose cascade (e.g. closing a URN file with
+                // multiple files open) the created Menu can already be disposed when
+                // this contribution item is torn down. setEnabled(false) on a disposed
+                // Menu throws SWTException("Widget is disposed") -- the crash in legacy
+                // bug 906. Guard on isDisposed() before touching it.
+                if (getCreatedMenu() != null && !getCreatedMenu().isDisposed()) {
                     getCreatedMenu().setEnabled(false);
                     getCreatedMenu().dispose();
                 }
