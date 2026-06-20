@@ -125,20 +125,20 @@ public class ComponentRefFigure extends RectangleFigure {
 
             // paint stickman
             graphics.setLineWidth(2);
-            points.addPoint(x + 10, y + 20);
-            points.addPoint(x + 10, y + 30);
-            points.addPoint(x + 5, y + 35);
-            graphics.drawPolyline(points);
 
-            points.removeAllPoints();
-            points.addPoint(x + 10, y + 30);
-            points.addPoint(x + 15, y + 35);
-            graphics.drawPolyline(points);
-
-            points.removeAllPoints();
-            points.addPoint(x + 5, y + 24);
-            points.addPoint(x + 15, y + 24);
-            graphics.drawPolyline(points);
+            // Draw each stickman segment with drawLine rather than drawPolyline.
+            // draw2d's ScaledGraphics -- the path every clipboard copy / image
+            // export goes through once the scale != 1.0 -- scales polyline points
+            // through zoomPointList(), which serves coordinates from a single
+            // int[] cache keyed only by array length. Two 2-point polylines (the
+            // arms and a leg) therefore collide on the same cached buffer and one
+            // is corrupted, producing the malformed stickman in issue #5 (missing
+            // body/leg, stray horizontal line). drawLine scales each endpoint
+            // directly with no shared cache, so it is immune. Identical on-screen.
+            graphics.drawLine(x + 10, y + 20, x + 10, y + 30); // body
+            graphics.drawLine(x + 10, y + 30, x + 5, y + 35); // left leg
+            graphics.drawLine(x + 10, y + 30, x + 15, y + 35); // right leg
+            graphics.drawLine(x + 5, y + 24, x + 15, y + 24); // arms
 
             // draw manly head.
             graphics.drawOval(x + 7, y + 14, 6, 6);
