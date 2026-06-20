@@ -119,12 +119,12 @@ public class BeliefMHandler extends GRLLinkableElementMHandler {
 
 			// Z.151 v20120902 removed IntentionalElement.refs (collection of wrapped
 			// IntentionalElementRef JAXBElements). The back-reference is now expressed
-			// via IntentionalElementRef.def (xsd:IDREF) pointing to its
-			// GRLContainableElement. The 2009 marshal handler wrote both sides; the
-			// new schema only models the IDREF side. The ieRef object is still added
-			// to its parent collection elsewhere in the handler chain — leaving the
-			// IDREF on .def to whichever handler does that wiring. FLAG: if Z.151
-			// export drops belief author/size data, this is the place to revisit.
+			// via IntentionalElementRef.def (xsd:IDREF, set above) pointing to its
+			// GRLContainableElement; the 2009 handler wrote both sides, the new schema
+			// only the IDREF side. Belief author (saved as the "jUCMNav Belief author"
+			// metadata above) and size are exported on ieRef and round-trip losslessly
+			// -- verified by Z151BeliefRoundTripTest (issue #2). The ieRef itself is
+			// added to its parent collection elsewhere in the handler chain.
 			urnZ.getGrlspec().getIntElements().add(intentionalElement);
 		}
 		return target = ieRef;
