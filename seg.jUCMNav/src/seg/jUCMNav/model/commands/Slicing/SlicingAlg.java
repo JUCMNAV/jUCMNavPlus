@@ -4,7 +4,9 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.Stack;
 
+import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.NullProgressMonitor;
+import org.eclipse.core.runtime.OperationCanceledException;
 // color packages
 import org.eclipse.draw2d.ColorConstants;
 import org.eclipse.emf.common.util.EList;
@@ -73,6 +75,13 @@ public class SlicingAlg {
 	    ArrayList<RespRef> deletedList=new ArrayList<RespRef>();
 	    public ArrayList<String> criterionVariables=new ArrayList<String>();
 	    private EditPartViewer viewer;
+	    /**
+	     * Optional progress monitor for the (potentially long) dependency analysis,
+	     * set by StaticSlicingCommand when the analysis runs under a
+	     * ProgressMonitorDialog off the UI thread (issue #9). volatile: read on the
+	     * worker thread, the Cancel button is pressed on the UI thread.
+	     */
+	    private volatile IProgressMonitor sliceMonitor;
 	    public static ArrayList<EObject> GreenedElements= new ArrayList<EObject>();
 	    public static ArrayList<EObject> visitedNodes= new ArrayList<EObject>();
 	    //this list will store all related concurrency branches into groups
@@ -138,8 +147,26 @@ public SlicingAlg( NodeConnection startingNodeConnection,ArrayList<String> baseV
  * @return list of all variables related to slicing criterion
  * 
  */
+/** Sets the monitor watched by {@link #checkCanceled()}; null disables cancellation checks. */
+public void setSliceMonitor(IProgressMonitor monitor) {
+	this.sliceMonitor = monitor;
+}
+
+/**
+ * Aborts the dependency-analysis recursion if the user pressed Cancel on the
+ * progress dialog. Called at every executeAlg entry; the deep recursion means
+ * this is hit frequently enough to react promptly. No-op when no monitor is set
+ * (e.g. headless runs), so behaviour is unchanged when slicing runs inline.
+ */
+private void checkCanceled() {
+	IProgressMonitor monitor = sliceMonitor;
+	if (monitor != null && monitor.isCanceled())
+		throw new OperationCanceledException();
+}
+
 public  ArrayList<String> executeAlg(ArrayList<String> criVar,NodeConnection startNC,Stack<Stub> stubStack, ArrayList<EObject> pathVisitedJoins, UnrelatedRespTree unrelatedTree,UnrelatedRespTree commonTree,boolean AndForkFlag )
 {
+	checkCanceled();
 	boolean stubEntryflag=false;
 	Stack<Stub> currentStubStack=new Stack<Stub>();
 	ArrayList<String> criterionVariables=new ArrayList<String>();
@@ -787,6 +814,7 @@ public  ArrayList<String> executeAlg(ArrayList<String> criVar,NodeConnection sta
  */
 public void  executeAlg(NodeConnection startNC,Stack<Stub> stubStack, ArrayList<EObject> pathVisitedJoins )
 {
+	checkCanceled();
 	boolean stubEntryflag=false;
 	Stack<Stub> currentStubStack=new Stack<Stub>();
 	ArrayList<EObject> currentVisitedJoins=new ArrayList<EObject>();

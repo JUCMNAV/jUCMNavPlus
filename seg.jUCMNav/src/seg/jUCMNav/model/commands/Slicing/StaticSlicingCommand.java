@@ -14,11 +14,15 @@ import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
+import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.NullProgressMonitor;
+import org.eclipse.core.runtime.OperationCanceledException;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.emf.ecore.EObject;
 import org.eclipse.gef.EditPartViewer;
 import org.eclipse.gef.commands.Command;
+import org.eclipse.jface.dialogs.ProgressMonitorDialog;
+import org.eclipse.jface.operation.IRunnableWithProgress;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.IEditorDescriptor;
 import org.eclipse.ui.IEditorInput;
@@ -306,13 +310,104 @@ public void runSlicingAlg()
 		SlicingAlg.criterionForwardBranches.clear();
 		SlicingAlg.allPaths.clear();
 		 ArrayList<EObject> pathVisitedJoins=new ArrayList<EObject>();
-	     //adding the resp-ref criterion in the visitedNodes list
-		 	 
+
+		// The dependency analysis below (forwardCheck_criterion + executeAlg, which
+		// recurses thousands of times through analizeCondition/analizeStatement/
+		// Parsing.getVariables) is what used to freeze the UI for seconds and trip
+		// org.eclipse.ui.monitoring. Run it off the UI thread under a cancellable
+		// ProgressMonitorDialog (issue #9, Option A). It is pure model analysis --
+		// it touches no SWT/figure state; only the result application below
+		// (removeUnrelatedElements / coloring) does, and that stays on the UI thread
+		// after the dialog returns. A cancelled run skips the application entirely,
+		// so the model is left untouched.
+		final NodeConnection fStartingNC = startingNC;
+		final NodeConnection fForwardStartingNC = forwardStartingNC;
+		final ArrayList<EObject> fPathVisitedJoins = pathVisitedJoins;
+		if (runDependencyAnalysisUnderProgress(fStartingNC, fForwardStartingNC, fPathVisitedJoins))
+			return; // cancelled or errored -> leave the model untouched
+
+		//Now check whether remove approach  or coloring is selected
+		if(removeType)
+			if(criterionVariables!=null)
+		slicing.removeUnrelatedElements(true);
+			else
+				slicing.removeUnrelatedElements(false);
+		//otherwise coloring is selected
+		else
+		{
+			slicing.coloring();
+		}
+
+	    Prevslicing=slicing;
+
+	      testPostConditions();
+
+}
+
+/**
+ * Runs the (potentially long) dependency analysis under a cancellable modal
+ * {@link ProgressMonitorDialog} on a worker thread, so the workbench stays
+ * responsive instead of freezing (issue #9, Option A). Returns {@code true} if
+ * the user cancelled or the analysis threw, in which case the caller must NOT
+ * apply any result -- the model is left unchanged. Falls back to running inline
+ * when there is no active shell (e.g. headless test runs).
+ */
+private boolean runDependencyAnalysisUnderProgress(final NodeConnection startingNC,
+		final NodeConnection forwardStartingNC, final ArrayList<EObject> pathVisitedJoins) {
+
+	Shell shell = null;
+	if (PlatformUI.getWorkbench().getActiveWorkbenchWindow() != null)
+		shell = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getShell();
+
+	if (shell == null) {
+		// No UI context: run inline, no dialog, no cancellation. Behaviour unchanged.
+		executeDependencyAnalysis(startingNC, forwardStartingNC, pathVisitedJoins);
+		return false;
+	}
+
+	try {
+		new ProgressMonitorDialog(shell).run(true, true, new IRunnableWithProgress() {
+			public void run(IProgressMonitor monitor) throws InvocationTargetException, InterruptedException {
+				monitor.beginTask("Computing static slice…", IProgressMonitor.UNKNOWN); //$NON-NLS-1$
+				slicing.setSliceMonitor(monitor);
+				try {
+					executeDependencyAnalysis(startingNC, forwardStartingNC, pathVisitedJoins);
+				} catch (OperationCanceledException oce) {
+					throw new InterruptedException();
+				} finally {
+					slicing.setSliceMonitor(null);
+					monitor.done();
+				}
+			}
+		});
+	} catch (InterruptedException cancelled) {
+		return true; // user pressed Cancel
+	} catch (InvocationTargetException ite) {
+		// analysis failed on the worker thread; log and bail without touching the model
+		if (ite.getCause() != null)
+			ite.getCause().printStackTrace();
+		else
+			ite.printStackTrace();
+		return true;
+	}
+	return false;
+}
+
+/**
+ * The pure-model dependency analysis lifted out of {@link #runSlicingAlg()} so it
+ * can run on a worker thread (issue #9). The logic is identical to the original
+ * inline body: it only reads the model and fills the SlicingAlg result lists, and
+ * touches no SWT state. {@code executeAlg} checks the slice monitor at every
+ * recursion entry, so this aborts promptly via OperationCanceledException when the
+ * user cancels.
+ */
+private void executeDependencyAnalysis(NodeConnection startingNC, NodeConnection forwardStartingNC,
+		ArrayList<EObject> pathVisitedJoins) {
+
 		 if(Criterion instanceof RespRef)
-		 {	
+		 {
 			 slicing.forwardNodeConnections.clear();
 		 slicing.forwardCheck_criterion(forwardStartingNC, pathVisitedJoins);
-			//System.out.println("criterion concurrent branches="+ slicing.forwardNodeConnections.size());
 			if(!slicing.forwardNodeConnections.isEmpty())
 			{
 				//if no variables are there, no need to create concurrency groups
@@ -327,7 +422,7 @@ public void runSlicingAlg()
 					SlicingAlg.concurrencyNodeConnections.add(nc);
 				}
 			}
-			
+
            }
 			//if no criterion variables are there, execute normal slicing algorithm
 			if(criterionVariables!=null)
@@ -359,59 +454,21 @@ public void runSlicingAlg()
 				else
 					sl.executeAlg(nc, new Stack<Stub>(), new ArrayList<EObject>());
 			}
-			
+
 			}
 		}
-		
-		/*
-		//System.out.println("Number of groups:"+SlicingAlg.concurrencyGroups.size());
-		int i=1;
-		for(ArrayList<NodeConnection> group:SlicingAlg.concurrencyGroups)
-		{
-			System.out.println("Size of Group NO "+i+"="+group.size());
-			i++;
-		}
-		*/
-		
+
 		//handle concurrency
 		//first remove inconsistency
 		if(criterionVariables!=null)
 		for(RespRef resp:SlicingAlg.allRelevantRespRefList)
-			SlicingAlg.allNotRelevantRespRefList.removeAll(Collections.singleton(resp));	
-		
-		//System.out.println("NO of Instances="+SlicingAlg.allPaths.size());
+			SlicingAlg.allNotRelevantRespRefList.removeAll(Collections.singleton(resp));
+
 		if(criterionVariables!=null)
 		{
 		ConcurrencyHandler con=new ConcurrencyHandler();
 		con.handleGroups(SlicingAlg.concurrencyGroups);
 		}
-		
-		//System.out.println("Number of unrelated respRef= "+ slicing.allNotRelevantRespRefList.size());
-		//System.out.println("Related RespRef= "+slicing.allRelevantRespRefList.size());
-		//Now check whether remove approach  or coloring is selected 
-		if(removeType)
-			if(criterionVariables!=null)
-		slicing.removeUnrelatedElements(true);
-			else
-				slicing.removeUnrelatedElements(false);
-		//otherwise coloring is selected
-		else
-		{    
-			//System.out.println("coloring chosen");
-			slicing.coloring();
-			//if criterion variables are there coloring is normally executed
-			//otherwise colorAll is invoked
-			//slicing.coloring();
-		}
-		//slicing.removeOrForkBranches();
-		//slicing.coloring();
-		
-	    Prevslicing=slicing;
-	    //JOptionPane.showMessageDialog(null,"Criterion Variables"+slicing.getCriterionVariables());
-	    
-	      testPostConditions();
-	     
-
 }
 /**
  * @see seg.jUCMNav.model.commands.JUCMNavCommand#testPreConditions()
