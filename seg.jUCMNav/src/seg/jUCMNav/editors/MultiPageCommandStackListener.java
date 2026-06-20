@@ -7,6 +7,8 @@ import java.util.List;
 
 import org.eclipse.gef.EditPart;
 import org.eclipse.gef.commands.CommandStack;
+import org.eclipse.gef.commands.CommandStackEvent;
+import org.eclipse.gef.commands.CommandStackEventListener;
 import org.eclipse.gef.commands.CommandStackListener;
 import org.eclipse.ui.PartInitException;
 
@@ -22,7 +24,7 @@ import urncore.IURNDiagram;
  * 
  * @author Gunnar Wagenknecht, jkealey
  */
-public class MultiPageCommandStackListener implements CommandStackListener {
+public class MultiPageCommandStackListener implements CommandStackListener, CommandStackEventListener {
 
     private final UCMNavMultiPageEditor editor;
 
@@ -44,7 +46,11 @@ public class MultiPageCommandStackListener implements CommandStackListener {
      */
     public void addCommandStack(CommandStack commandStack) {
         commandStacks.add(commandStack);
-        commandStack.addCommandStackListener(this);
+        // Register as a CommandStackEventListener (not the legacy CommandStackListener)
+        // on the per-page stacks so we receive the event detail (POST_EXECUTE vs
+        // POST_UNDO/REDO/MARK_SAVE) and can flush the URN-spec stack ONLY on a real
+        // execute -- see commandStackVerifyPages / issue #6.
+        commandStack.addCommandStackEventListener(this);
     }
 
     /**
@@ -55,7 +61,37 @@ public class MultiPageCommandStackListener implements CommandStackListener {
      * 
      * @see org.eclipse.gef.commands.CommandStackListener#commandStackChanged(java.util.EventObject)
      */
+    /**
+     * Legacy {@link CommandStackListener} entry point. Only the
+     * {@link DelegatingCommandStack} still notifies this way (it forwards its
+     * underlying stack changes via the no-arg notifyListeners()). Those events
+     * never trigger a URN-spec flush -- the source is the DelegatingCommandStack
+     * itself -- so no event detail is needed here; we pass NO_DETAIL.
+     *
+     * @see org.eclipse.gef.commands.CommandStackListener#commandStackChanged(java.util.EventObject)
+     */
     public void commandStackChanged(EventObject event) {
+        handleStackChange(event, NO_DETAIL);
+    }
+
+    /**
+     * {@link CommandStackEventListener} entry point for the per-page command
+     * stacks. The detail flag lets us flush the URN-spec stack only on a real
+     * execute, not on undo / redo / save / flush (issue #6). We react once per
+     * operation, on the POST event.
+     *
+     * @see org.eclipse.gef.commands.CommandStackEventListener#stackChanged(org.eclipse.gef.commands.CommandStackEvent)
+     */
+    public void stackChanged(CommandStackEvent event) {
+        if (!event.isPostChangeEvent())
+            return;
+        handleStackChange(event, event.getDetail());
+    }
+
+    /** Sentinel for the legacy listener path, which carries no event detail. */
+    private static final int NO_DETAIL = -1;
+
+    private void handleStackChange(EventObject event, int detail) {
         if (((CommandStack) event.getSource()).isDirty()) {
             // at least one command stack is dirty,
             // so the multi page editor is dirty too
@@ -77,7 +113,7 @@ public class MultiPageCommandStackListener implements CommandStackListener {
         this.editor.getActionRegistryManager().updateStackActions();
 
         // check to see if there are any new/deleted pages; will have to update tabs.
-        commandStackVerifyPages(event);
+        commandStackVerifyPages(event, detail);
     }
 
     /**
@@ -86,7 +122,7 @@ public class MultiPageCommandStackListener implements CommandStackListener {
      * @param event
      *            the command stack changed event.
      */
-    private void commandStackVerifyPages(EventObject event) {
+    private void commandStackVerifyPages(EventObject event, int detail) {
         if (this.editor.getPageCount() != this.editor.getModel().getUrndef().getSpecDiagrams().size() && event.getSource() instanceof DelegatingCommandStack) {
             IURNDiagram diagramChanged = ((DelegatingCommandStack) event.getSource()).getLastAffectedDiagram();
 
@@ -101,23 +137,31 @@ public class MultiPageCommandStackListener implements CommandStackListener {
                     removeEditor(diagramChanged);
             }
         } else {
-            // if the command stack changed directly instead of calling DelegatingCommandStack, we need to inform it.
-            // we do this so that we cannot undo a create/delete map after another action has been performed.
-            if (!(event.getSource() instanceof DelegatingCommandStack))
-                this.editor.getDelegatingCommandStack().flushURNspecStack();
+            // A change came directly from a per-page command stack (not the
+            // DelegatingCommandStack). The URN-spec stack holds create/delete-map
+            // commands; the UX rule is that one can no longer be undone once a
+            // normal edit is performed afterward, so we flush it here. But flush
+            // ONLY on a real execute (POST_EXECUTE): flushing on undo / redo /
+            // save / flush previously wiped redo capability across a save, which
+            // is the root cause of issue #6. The DelegatingCommandStack.execute
+            // path already flushes on execute, so this is the secondary guard.
+            if (!(event.getSource() instanceof DelegatingCommandStack)) {
+                if (detail == CommandStack.POST_EXECUTE)
+                    this.editor.getDelegatingCommandStack().flushURNspecStack();
+            }
             else
             {
                 if (this.editor.getDelegatingCommandStack().getRedoCommand() instanceof ChangeUCMDiagramOrderCommand ||  this.editor.getDelegatingCommandStack().getUndoCommand() instanceof ChangeUCMDiagramOrderCommand)
                 {
                     IURNDiagram diag =this.editor.getDelegatingCommandStack().getLastAffectedDiagram();
-                    if (diag.getUrndefinition()!=null) 
+                    if (diag.getUrndefinition()!=null)
                     {
                         int modelIndex = diag.getUrndefinition().getSpecDiagrams().indexOf(diag);
                         if (((UrnEditor)editor.getEditor(modelIndex)).getModel()!=diag) {
                             removeEditor(diag);
                             // might get done by notifications
                             if (this.editor.getPageCount() != diag.getUrndefinition().getSpecDiagrams().size())
-                                commandStackVerifyPages(event);
+                                commandStackVerifyPages(event, detail);
                         }
                     }
                 }
@@ -180,7 +224,7 @@ public class MultiPageCommandStackListener implements CommandStackListener {
      */
     public void dispose() {
         for (Iterator stacks = commandStacks.iterator(); stacks.hasNext();) {
-            ((CommandStack) stacks.next()).removeCommandStackListener(this);
+            ((CommandStack) stacks.next()).removeCommandStackEventListener(this);
         }
         commandStacks.clear();
     }
@@ -206,6 +250,6 @@ public class MultiPageCommandStackListener implements CommandStackListener {
      */
     public void removeCommandStack(CommandStack commandStack) {
         commandStacks.remove(commandStack);
-        commandStack.removeCommandStackListener(this);
+        commandStack.removeCommandStackEventListener(this);
     }
 }
