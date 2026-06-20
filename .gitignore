@@ -2,6 +2,16 @@
 bin/
 *.class
 
+# Eclipse PDE per-developer classpath (issue #3, Option C). The IDE regenerates
+# .classpath from MANIFEST.MF + build.properties + the active target platform on
+# import; it is not the source of truth and must not be committed. The Tycho CLI
+# build never reads it. Note: a fresh IDE import will surface *discouraged-access*
+# warnings on the local search content providers (seg.jUCMNav/src/seg/jUCMNav/
+# views/search/) because they use org.eclipse.search.internal.ui.text.* -- these
+# are x-internal packages, so the access is a warning, not an error. The build
+# still compiles. The old committed .classpath merely suppressed those warnings.
+.classpath
+
 # Tycho-built nested classpath jar (the bundle's own compiled code, embedded
 # via Bundle-ClassPath: jUCMNav.jar). Produced fresh on each build.
 seg.jUCMNav/jUCMNav.jar

@@ -74,6 +74,14 @@ Run As → Eclipse Application to launch a runtime workbench. For tests,
 right-click any class under `seg.jUCMNav.tests/src/` (or the `src/` folder
 itself) → Run As → JUnit Plug-in Test.
 
+`.classpath` is **not committed** (issue #3, Option C): it is per-developer
+IDE state that Eclipse PDE regenerates from `MANIFEST.MF` + `build.properties`
++ the active target platform, and the Tycho CLI build never reads it. Do not
+re-commit it (it is `.gitignore`d). A fresh import shows discouraged-access
+warnings on `seg.jUCMNav/src/seg/jUCMNav/views/search/` (it uses
+`org.eclipse.search.internal.ui.text.*`, which are `x-internal` packages —
+warnings, not errors); the build still compiles.
+
 ## Repo layout (after scaffolding)
 
 - `seg.jUCMNav/` — the plug-in (existing code). Pomless: built from its MANIFEST.MF.
