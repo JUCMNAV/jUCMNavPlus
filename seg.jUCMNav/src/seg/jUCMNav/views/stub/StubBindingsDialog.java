@@ -1191,8 +1191,8 @@ public class StubBindingsDialog extends Dialog implements Adapter {
                     execute(changeProb, false);
                 }
                 okButton.setEnabled(true);
-                lblProbabilityValid.setText(""); //$NON-NLS-1$
-                lblProbabilityValid.setBackground(ColorManager.WHITE);
+                // Field is valid; surface the across-plugins sum-to-1.0 check (issue #22).
+                refreshProbabilitySum();
             } catch (Exception e) {
                 okButton.setEnabled(false);
                 lblProbabilityValid.setText("INVALID"); //$NON-NLS-1$
@@ -1200,6 +1200,31 @@ public class StubBindingsDialog extends Dialog implements Adapter {
             }
         }
     }
+
+    /**
+     * Shows a non-blocking warning when the plug-in binding probabilities of the
+     * stub do not sum to 1.0 (issue #22), reusing the per-field validity label.
+     * Only meaningful for probability-based dynamic stubs; harmless otherwise.
+     */
+    private void refreshProbabilitySum() {
+        if (lblProbabilityValid == null || lblProbabilityValid.isDisposed() || stub == null || stub.getBindings() == null
+                || stub.getBindings().isEmpty()) {
+            return;
+        }
+        double sum = 0.0;
+        for (Iterator iter = stub.getBindings().iterator(); iter.hasNext();) {
+            sum += ((PluginBinding) iter.next()).getProbability();
+        }
+        if (Math.abs(sum - 1.0) > 1e-6) {
+            double rounded = Math.round(sum * 100.0) / 100.0;
+            lblProbabilityValid.setText("Sum=" + rounded + " (should be 1.0)"); //$NON-NLS-1$ //$NON-NLS-2$
+            lblProbabilityValid.setBackground(ColorManager.RED);
+        } else {
+            lblProbabilityValid.setText(""); //$NON-NLS-1$
+            lblProbabilityValid.setBackground(ColorManager.WHITE);
+        }
+    }
+
     protected void handleUpdateReplicationFactor() {
         if (this.preventUpdate)
             return;
@@ -1262,6 +1287,8 @@ public class StubBindingsDialog extends Dialog implements Adapter {
             lblProbabilityValid.setBackground(ColorManager.WHITE);
             okButton.setEnabled(true);
             this.preventUpdate = false;
+            // Surface the across-plugins sum-to-1.0 check for the current stub (issue #22).
+            refreshProbabilitySum();
         }
     }
 

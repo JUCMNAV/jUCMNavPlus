@@ -21,6 +21,7 @@ import org.eclipse.ui.IWorkbenchWizard;
 
 import seg.jUCMNav.Messages;
 import seg.jUCMNav.editors.UCMNavMultiPageEditor;
+import seg.jUCMNav.model.commands.change.ChangeProbabilityCommand;
 import seg.jUCMNav.model.commands.transformations.ChangeCodeCommand;
 import ucm.map.FailurePoint;
 import ucm.map.NodeConnection;
@@ -80,6 +81,17 @@ public class CodeEditor extends Wizard {
             Map.Entry entry = (Map.Entry) iter.next();
             cmd.add(new ChangeCodeCommand((EObject) entry.getKey(), entry.getValue().toString(), labels.get(entry.getKey()).toString(), descriptions.get(
                     entry.getKey()).toString()));
+        }
+
+        // OR-fork branch probabilities (issue #22): one ChangeProbabilityCommand
+        // per branch whose probability the user actually changed.
+        final HashMap probabilities = page.getAllProbabilities();
+        for (Iterator iter = probabilities.entrySet().iterator(); iter.hasNext();) {
+            Map.Entry entry = (Map.Entry) iter.next();
+            NodeConnection branch = (NodeConnection) entry.getKey();
+            double p = ((Double) entry.getValue()).doubleValue();
+            if (branch.getProbability() != p)
+                cmd.add(new ChangeProbabilityCommand(branch, p));
         }
 
         if (cmd.canExecute()) {

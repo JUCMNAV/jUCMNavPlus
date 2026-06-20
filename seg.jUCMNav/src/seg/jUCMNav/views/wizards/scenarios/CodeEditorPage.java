@@ -71,6 +71,16 @@ public class CodeEditorPage extends WizardPage {
     private HashMap labels;
     private HashMap descriptions;
 
+    // OR-fork branch probabilities (issue #22). Only shown when the editor was
+    // opened on an OR-fork: every possibility is then a branch Condition whose
+    // container is the branch NodeConnection that carries the probability. The
+    // map is keyed by the same possibility objects as code/labels/descriptions.
+    private HashMap probabilities;
+    private boolean showProbability;
+    private Composite probabilityRow;
+    private Text probabilityText;
+    private Label probabilitySumLabel;
+
     private ModifyListener modifyListener = new ModifyListener() {
         public void modifyText(ModifyEvent e) {
             dialogChanged();
@@ -93,6 +103,7 @@ public class CodeEditorPage extends WizardPage {
         this.code = new HashMap();
         this.labels = new HashMap();
         this.descriptions = new HashMap();
+        this.probabilities = new HashMap();
         this.allPossibilities = new Vector();
     }
 
@@ -167,6 +178,35 @@ public class CodeEditorPage extends WizardPage {
         descriptionText.setLayoutData(gd);
         descriptionText.addModifyListener(modifyListener);
 
+        // OR-fork branch probability row (issue #22). Created always so the fields
+        // are non-null, but hidden unless we are editing OR-fork branches (decided
+        // in applyProbabilityVisibility() after initialize()).
+        probabilityRow = new Composite(container, SWT.NULL);
+        GridLayout probLayout = new GridLayout();
+        probLayout.numColumns = 3;
+        probLayout.marginWidth = 0;
+        probLayout.marginHeight = 0;
+        probabilityRow.setLayout(probLayout);
+        gd = new GridData(GridData.FILL_HORIZONTAL);
+        gd.horizontalSpan = 2;
+        probabilityRow.setLayoutData(gd);
+
+        Label probLabel = new Label(probabilityRow, SWT.NULL);
+        probLabel.setText(Messages.getString("CodeEditorPage.Probability")); //$NON-NLS-1$
+
+        probabilityText = new Text(probabilityRow, SWT.BORDER);
+        GridData pgd = new GridData();
+        pgd.widthHint = 50;
+        probabilityText.setLayoutData(pgd);
+        probabilityText.addModifyListener(new ModifyListener() {
+            public void modifyText(ModifyEvent e) {
+                handleProbabilityModified();
+            }
+        });
+
+        probabilitySumLabel = new Label(probabilityRow, SWT.NULL);
+        probabilitySumLabel.setLayoutData(new GridData(GridData.FILL_HORIZONTAL));
+
         // label over the code box.
         label = new Label(container, SWT.NULL);
         label.setText(Messages.getString("CodeEditorPage.EnterTheCode")); //$NON-NLS-1$
@@ -236,6 +276,8 @@ public class CodeEditorPage extends WizardPage {
 
         possibilities.select(allPossibilities.indexOf(defaultSelected));
 
+        applyProbabilityVisibility();
+
         if (isResponsibility()) {
             setTitle(Messages.getString("CodeEditorPage.ResponsibilityEditor")); //$NON-NLS-1$
             setDescription(Messages.getString("CodeEditorPage.PleaseEnterResponsibility")); //$NON-NLS-1$
@@ -302,6 +344,8 @@ public class CodeEditorPage extends WizardPage {
             IStructuredSelection ssel = (IStructuredSelection) selection;
 
             initPossibilities(ssel);
+
+            showProbability = computeShowProbability();
 
             if (defaultSelected == null)
                 defaultSelected = (EObject) ssel.getFirstElement();
@@ -419,6 +463,133 @@ public class CodeEditorPage extends WizardPage {
         labelText.addModifyListener(modifyListener);
         descriptionText.addModifyListener(modifyListener);
 
+        loadProbabilityField(obj);
+    }
+
+    /** @return the OR-fork branch NodeConnection that owns this Condition possibility, or null. */
+    private NodeConnection branchOf(Object possibility) {
+        if (possibility instanceof Condition && ((Condition) possibility).eContainer() instanceof NodeConnection)
+            return (NodeConnection) ((Condition) possibility).eContainer();
+        return null;
+    }
+
+    /** True when every possibility is a branch Condition of an OR-fork (issue #22). */
+    private boolean computeShowProbability() {
+        for (int i = 0; i < allPossibilities.size(); i++) {
+            NodeConnection branch = branchOf(allPossibilities.get(i));
+            if (branch != null && branch.getSource() instanceof ucm.map.OrFork)
+                return true;
+        }
+        return false;
+    }
+
+    /** Shows/hides the probability row and seeds it for the current branch. */
+    private void applyProbabilityVisibility() {
+        if (probabilityRow == null)
+            return;
+        ((GridData) probabilityRow.getLayoutData()).exclude = !showProbability;
+        probabilityRow.setVisible(showProbability);
+        if (showProbability) {
+            loadProbabilityField(defaultSelected);
+            updateProbabilitySum();
+        }
+        probabilityRow.getParent().layout(true, true);
+    }
+
+    /** Loads the stored/model probability for the selected branch into the text field. */
+    private void loadProbabilityField(Object obj) {
+        if (!showProbability || probabilityText == null)
+            return;
+        NodeConnection branch = branchOf(obj);
+        if (branch == null)
+            return;
+        Double stored = (Double) probabilities.get(obj);
+        double value = stored != null ? stored.doubleValue() : branch.getProbability();
+        // setText fires modifyText -> handleProbabilityModified(); that just re-stores
+        // the same value and refreshes the sum, which is harmless.
+        probabilityText.setText(Double.toString(value));
+    }
+
+    /** Validates the typed probability, stores it for the current branch, and refreshes the sum warning. */
+    private void handleProbabilityModified() {
+        if (!showProbability || defaultSelected == null)
+            return;
+        NodeConnection branch = branchOf(defaultSelected);
+        if (branch == null)
+            return;
+        try {
+            double p = Double.parseDouble(probabilityText.getText().trim());
+            if (p >= 0.0 && p <= 1.0)
+                probabilities.put(defaultSelected, Double.valueOf(p));
+        } catch (NumberFormatException ex) {
+            // leave the stored value untouched; updateProbabilitySum() flags the bad input
+        }
+        updateProbabilitySum();
+    }
+
+    /** Recomputes the branch-probability sum and shows a non-blocking warning if it is not 1.0. */
+    private void updateProbabilitySum() {
+        if (!showProbability || probabilitySumLabel == null || probabilitySumLabel.isDisposed())
+            return;
+
+        // Is the value currently in the field a valid probability in [0,1]?
+        boolean currentInvalid = false;
+        String txt = probabilityText.getText().trim();
+        if (txt.length() == 0) {
+            currentInvalid = true;
+        } else {
+            try {
+                double p = Double.parseDouble(txt);
+                if (p < 0.0 || p > 1.0)
+                    currentInvalid = true;
+            } catch (NumberFormatException ex) {
+                currentInvalid = true;
+            }
+        }
+
+        double sum = 0.0;
+        for (int i = 0; i < allPossibilities.size(); i++) {
+            Object el = allPossibilities.get(i);
+            if (branchOf(el) == null)
+                continue;
+            Double v = (Double) probabilities.get(el);
+            sum += v != null ? v.doubleValue() : branchOf(el).getProbability();
+        }
+
+        if (currentInvalid) {
+            probabilitySumLabel.setText(Messages.getString("CodeEditorPage.ProbabilityInvalid")); //$NON-NLS-1$
+            probabilitySumLabel.setForeground(probabilitySumLabel.getDisplay().getSystemColor(SWT.COLOR_RED));
+        } else if (Math.abs(sum - 1.0) > 1e-6) {
+            probabilitySumLabel.setText(Messages.getString("CodeEditorPage.ProbabilitySumWarning") + " " + round2(sum)); //$NON-NLS-1$ //$NON-NLS-2$
+            probabilitySumLabel.setForeground(probabilitySumLabel.getDisplay().getSystemColor(SWT.COLOR_RED));
+        } else {
+            probabilitySumLabel.setText(Messages.getString("CodeEditorPage.ProbabilitySumOk")); //$NON-NLS-1$
+            probabilitySumLabel.setForeground(probabilitySumLabel.getDisplay().getSystemColor(SWT.COLOR_DARK_GREEN));
+        }
+    }
+
+    private static String round2(double d) {
+        return Double.toString(Math.round(d * 100.0) / 100.0);
+    }
+
+    /**
+     * Edited OR-fork branch probabilities, keyed by branch NodeConnection. Empty
+     * unless the editor was opened on an OR-fork. Consumed by CodeEditor.performFinish.
+     *
+     * @return map of NodeConnection -&gt; Double
+     */
+    public HashMap getAllProbabilities() {
+        HashMap result = new HashMap();
+        if (!showProbability)
+            return result;
+        for (int i = 0; i < allPossibilities.size(); i++) {
+            Object el = allPossibilities.get(i);
+            NodeConnection branch = branchOf(el);
+            Double v = (Double) probabilities.get(el);
+            if (branch != null && v != null)
+                result.put(branch, v);
+        }
+        return result;
     }
 
     private void initPossibilities(IStructuredSelection ssel) {
@@ -480,6 +651,11 @@ public class CodeEditorPage extends WizardPage {
                     descriptions.put(element, ""); //$NON-NLS-1$
                 else
                     descriptions.put(element, c.getDescription());
+
+                // OR-fork branch probability lives on the condition's NodeConnection.
+                NodeConnection branch = branchOf(element);
+                if (branch != null)
+                    probabilities.put(element, Double.valueOf(branch.getProbability()));
             } else if (element instanceof NodeConnection) {
                 NodeConnection c = (NodeConnection) element;
                 if (c.getThreshold() == null)
