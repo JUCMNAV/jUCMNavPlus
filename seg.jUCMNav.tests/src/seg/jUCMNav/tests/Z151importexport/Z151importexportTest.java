@@ -1,11 +1,13 @@
 package seg.jUCMNav.tests.Z151importexport;
 
-import java.io.BufferedInputStream;
+import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.JAXBElement;
@@ -21,144 +23,132 @@ import seg.jUCMNav.importexport.z151.marshal.URNspecMHandler;
 import seg.jUCMNav.importexport.z151.unmarshal.EObjectImplUMHandler;
 import seg.jUCMNav.importexport.z151.unmarshal.URNspecUMHandler;
 
+/**
+ * Z.151 import/export round-trip regression gate.
+ *
+ * For each fixture, the expected {@code .z151} file is read from the test bundle
+ * classpath (the sibling {@code expected/} folder), imported into a jUCMNav URN
+ * model, re-exported to a throwaway temporary file, and the two are compared
+ * after normalizing the generated ids. This is the formal regression gate for
+ * commits 301a9711 (preserve GRL ref relationships on export) and 8f6f727c
+ * (guard the optional style element on import).
+ *
+ * Re-enabled in issue #7: the previous version resolved expected/actual paths
+ * against {@code new File(".")} with hard-coded Windows separators, which does
+ * not exist under the Tycho-surefire test workspace. It now loads the fixture as
+ * a bundle resource and writes output to a temp file, so it is location- and
+ * platform-independent.
+ */
 public class Z151importexportTest extends TestCase {
-	static String jUCMNavHome = SkeletonClassesGenerator.getHomeDirPath();
-	static String expected = "\\src\\seg\\jUCMNav\\tests\\Z151importexport\\expected\\"; //$NON-NLS-1$
-	static String actual = "\\src\\seg\\jUCMNav\\tests\\Z151importexport\\actual\\"; //$NON-NLS-1$
-	
-	/**
-	 * Placeholder so JUnit 3 still sees at least one test method on the class
-	 * while {@link #disabled_testActor()} is renamed out. Replace once the
-	 * disabled test is rewired against bundle resources.
-	 */
-	public void testZ151SuiteIsTemporarilyDisabled() {
-		assertTrue(true);
-	}
 
-	// Phase 3 disabled (renamed `test` -> `disabled_test` so JUnit 3 reflection skips):
-	// the test resolves expected/ and actual/ paths against `new File(".").getCanonicalPath()`
-	// (via SkeletonClassesGenerator.getHomeDirPath) using hard-coded Windows path separators,
-	// and writes the actual file to disk under that location. Under Tycho-surefire the cwd is
-	// the test bundle's target/work workspace, not the source tree, so the parent directories
-	// do not exist and FileOutputStream throws FileNotFoundException. Re-enable by switching
-	// `expected/actor.z151` to a bundle resource (Z151importexportTest.class.getResourceAsStream)
-	// and writing `actual` to a JUnit TemporaryFolder before string-comparing the marshalled XML.
-	// The Z.151 round-trip itself is covered by commits 301a9711 (ref export) and 8f6f727c
-	// (style-element NPE on import); this test is the formal regression gate for those fixes.
-	public void disabled_testActor(){
-		String Z151file = "actor.z151"; //$NON-NLS-1$
-		compareTwoZ151File(Z151file);
-	}
-	
-//	public void testAO_Via_Verde_SPL(){
-//		String Z151file = "AO_Via_Verde_SPL.z151";
-//		compareTwoZ151File(Z151file);
-//	}
+    public void testActor() throws Exception {
+        compareTwoZ151File("actor.z151"); //$NON-NLS-1$
+    }
 
-	public boolean compareTwoZ151File(String Z151file){
-		String expectedPath =jUCMNavHome+expected+Z151file;
-		String actualPath= jUCMNavHome+actual+Z151file;
-		urn.URNspec urn = mockImport(expectedPath);
-		mockExport(urn, actualPath);
-		String expected =  ResolveIds(readFileAsString(expectedPath));
-		String actual =  ResolveIds(readFileAsString(actualPath));
-		System.out.println(expected);
-		assertEquals(expected, actual);
-		return true;
-	}
-	private urn.URNspec mockImport(String fileName) {
-		EObjectImplUMHandler mh = new URNspecUMHandler();
-		FileInputStream fis;
-		urn.URNspec urn = null;
-		try {
-			fis = new FileInputStream(new File(fileName));
-			JAXBContext context = JAXBContext.newInstance(URNspec.class);
-			Unmarshaller um = context.createUnmarshaller();
-			// Unmarshal XML contents of the file into Java object instance.
-			JAXBElement<seg.jUCMNav.importexport.z151.generated.URNspec> specFromFile = (JAXBElement<seg.jUCMNav.importexport.z151.generated.URNspec>) um
-					.unmarshal(fis);
-			urn = (urn.URNspec) mh.handle(specFromFile.getValue(), null, true);
-			
-		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (JAXBException jbe) {
-			System.err.println(jbe.getMessage());
-		} catch (Exception e) {
-			System.err.println(e.getMessage());
-		}finally{
-			mh.resetUrnSpec();
-		}
-		return urn;
-	}
+    public void compareTwoZ151File(String Z151file) throws Exception {
+        // Expected file: load from the test bundle classpath (sibling 'expected' folder).
+        byte[] expectedBytes = readResource("expected/" + Z151file); //$NON-NLS-1$
 
-	private void mockExport(urn.URNspec urn, String outputFile) {
-		MHandler mh = null;
-		FileOutputStream fos;
-		
-		// Marshal the URN spec to XML...
-		try {
-			fos = new FileOutputStream(outputFile);
-			mh = new URNspecMHandler();
-			URNspec urnZ = null;
-			urnZ = (URNspec) mh.handle(urn, null, true);
-			JAXBContext context = JAXBContext.newInstance(URNspec.class);
-			seg.jUCMNav.importexport.z151.generated.ObjectFactory of = new ObjectFactory();
-			JAXBElement<URNspec> spec = of.createURNspec(urnZ);
-			Marshaller m = context.createMarshaller();
-			m.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, Boolean.TRUE);
-			m.marshal(spec, fos);
-		}catch (FileNotFoundException e1) {
-			e1.printStackTrace();
-		}catch (JAXBException jbe) {
-			System.err.println(jbe.getMessage());
-		} catch (Exception e) {
-			System.err.println(e.getMessage());
-		}finally{
-			if (mh != null) mh.resetUrnSpec();
-		}
-	}
+        // Import the expected Z.151 document into a jUCMNav URN model.
+        urn.URNspec urn = mockImport(new ByteArrayInputStream(expectedBytes));
+        assertNotNull("Z.151 import returned no URNspec for " + Z151file, urn); //$NON-NLS-1$
 
-	private String ResolveIds(String urnspec) {
-		String idPrefix = "<id>Z151_id_"; //$NON-NLS-1$
-		String idClosing = "</id>"; //$NON-NLS-1$
-		int count = 1;
-		int startIndex = urnspec.indexOf(idPrefix);
-		int endIndex;
-		while (startIndex != -1) {
-			endIndex = startIndex+ urnspec.substring(startIndex).indexOf(idClosing);
-			String id = urnspec.substring(startIndex + "<id>".length(),endIndex); //$NON-NLS-1$
-			String newId = "RESOLVED_" + count++; //$NON-NLS-1$
-			urnspec = urnspec.replaceAll(id, newId);
-			startIndex = urnspec.indexOf(idPrefix);
-		}
-		return urnspec;
-	}
-	
-	private static String readFileAsString(String filePath) {
-		byte[] buffer = new byte[(int) new File(filePath).length()];
-		BufferedInputStream f;
-		try {
-			f = new BufferedInputStream(new FileInputStream(filePath));
-			try {
-				f.read(buffer);
-				f.close();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-				try {
-					f.close();
-				} catch (IOException e1) {
-					// TODO Auto-generated catch block
-					e1.printStackTrace();
-				}
-			}
-		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		
-		return new String(buffer);
-		
-	}
+        // Re-export to a throwaway temp file -- no dependency on the source-tree layout.
+        File actualOut = File.createTempFile("z151-actual-", "-" + Z151file); //$NON-NLS-1$ //$NON-NLS-2$
+        actualOut.deleteOnExit();
+        mockExport(urn, actualOut.getAbsolutePath());
+        byte[] actualBytes = Files.readAllBytes(actualOut.toPath());
+
+        // Normalize line endings: the committed fixture may be checked out with CRLF
+        // on Windows, while the JAXB marshaller emits LF. Line endings are not
+        // semantically meaningful in XML, so compare on a common newline form.
+        String expected = normalizeNewlines(ResolveIds(new String(expectedBytes, StandardCharsets.UTF_8)));
+        String actual = normalizeNewlines(ResolveIds(new String(actualBytes, StandardCharsets.UTF_8)));
+        assertEquals(expected, actual);
+    }
+
+    private static String normalizeNewlines(String s) {
+        return s.replace("\r\n", "\n").replace("\r", "\n"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+    }
+
+    /** Reads a resource located relative to this test class on the bundle classpath. */
+    private byte[] readResource(String relativeName) throws IOException {
+        InputStream in = Z151importexportTest.class.getResourceAsStream(relativeName);
+        assertNotNull("Missing test resource on classpath: " + relativeName, in); //$NON-NLS-1$
+        try {
+            return in.readAllBytes();
+        } finally {
+            in.close();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private urn.URNspec mockImport(InputStream in) {
+        EObjectImplUMHandler mh = new URNspecUMHandler();
+        urn.URNspec urn = null;
+        try {
+            JAXBContext context = JAXBContext.newInstance(URNspec.class);
+            Unmarshaller um = context.createUnmarshaller();
+            // Unmarshal XML contents of the stream into a Java object instance.
+            JAXBElement<seg.jUCMNav.importexport.z151.generated.URNspec> specFromFile = (JAXBElement<seg.jUCMNav.importexport.z151.generated.URNspec>) um
+                    .unmarshal(in);
+            urn = (urn.URNspec) mh.handle(specFromFile.getValue(), null, true);
+        } catch (JAXBException jbe) {
+            System.err.println(jbe.getMessage());
+        } catch (Exception e) {
+            System.err.println(e.getMessage());
+        } finally {
+            mh.resetUrnSpec();
+        }
+        return urn;
+    }
+
+    private void mockExport(urn.URNspec urn, String outputFile) {
+        MHandler mh = null;
+        FileOutputStream fos = null;
+
+        // Marshal the URN spec to XML...
+        try {
+            fos = new FileOutputStream(outputFile);
+            mh = new URNspecMHandler();
+            URNspec urnZ = (URNspec) mh.handle(urn, null, true);
+            JAXBContext context = JAXBContext.newInstance(URNspec.class);
+            ObjectFactory of = new ObjectFactory();
+            JAXBElement<URNspec> spec = of.createURNspec(urnZ);
+            Marshaller m = context.createMarshaller();
+            m.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, Boolean.TRUE);
+            m.marshal(spec, fos);
+        } catch (FileNotFoundException e1) {
+            e1.printStackTrace();
+        } catch (JAXBException jbe) {
+            System.err.println(jbe.getMessage());
+        } catch (Exception e) {
+            System.err.println(e.getMessage());
+        } finally {
+            if (mh != null)
+                mh.resetUrnSpec();
+            if (fos != null)
+                try {
+                    fos.close();
+                } catch (IOException ignore) {
+                    // best-effort close
+                }
+        }
+    }
+
+    private String ResolveIds(String urnspec) {
+        String idPrefix = "<id>Z151_id_"; //$NON-NLS-1$
+        String idClosing = "</id>"; //$NON-NLS-1$
+        int count = 1;
+        int startIndex = urnspec.indexOf(idPrefix);
+        int endIndex;
+        while (startIndex != -1) {
+            endIndex = startIndex + urnspec.substring(startIndex).indexOf(idClosing);
+            String id = urnspec.substring(startIndex + "<id>".length(), endIndex); //$NON-NLS-1$
+            String newId = "RESOLVED_" + count++; //$NON-NLS-1$
+            urnspec = urnspec.replaceAll(id, newId);
+            startIndex = urnspec.indexOf(idPrefix);
+        }
+        return urnspec;
+    }
 }

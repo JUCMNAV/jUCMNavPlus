@@ -23,12 +23,12 @@
         <actors>
             <id>11</id>
             <name>Actor11</name>
-            <actorRefs>12</actorRefs>
             <style>
                 <lineColor>0,0,0</lineColor>
                 <fillColor>255,255,255</fillColor>
                 <filled>false</filled>
             </style>
+            <actorRefs>12</actorRefs>
         </actors>
         <groups>
             <id>3</id>
