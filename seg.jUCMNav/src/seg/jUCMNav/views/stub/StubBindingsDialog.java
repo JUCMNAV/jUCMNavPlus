@@ -1211,11 +1211,19 @@ public class StubBindingsDialog extends Dialog implements Adapter {
                 || stub.getBindings().isEmpty()) {
             return;
         }
+        // Sum the plug-in probabilities and note whether they are actually in use:
+        // the default is 1.0 on every binding and most dynamic stubs are
+        // condition-based (no probabilities), so the check must stay silent until
+        // at least one binding differs from 1.0 -- otherwise it nags the majority.
         double sum = 0.0;
+        boolean inUse = false;
         for (Iterator iter = stub.getBindings().iterator(); iter.hasNext();) {
-            sum += ((PluginBinding) iter.next()).getProbability();
+            double p = ((PluginBinding) iter.next()).getProbability();
+            sum += p;
+            if (Math.abs(p - 1.0) > 1e-6)
+                inUse = true;
         }
-        if (Math.abs(sum - 1.0) > 1e-6) {
+        if (inUse && Math.abs(sum - 1.0) > 1e-6) {
             double rounded = Math.round(sum * 100.0) / 100.0;
             lblProbabilityValid.setText("Sum=" + rounded + " (should be 1.0)"); //$NON-NLS-1$ //$NON-NLS-2$
             lblProbabilityValid.setBackground(ColorManager.RED);

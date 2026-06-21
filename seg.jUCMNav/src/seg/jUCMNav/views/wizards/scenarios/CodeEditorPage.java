@@ -547,18 +547,29 @@ public class CodeEditorPage extends WizardPage {
             }
         }
 
+        // Sum the branch probabilities and note whether probabilities are actually
+        // in use: the default is 1.0 on every branch and most users never touch it,
+        // so the sum check must stay silent until at least one branch differs from
+        // 1.0 -- otherwise it would nag the majority who don't use probabilities.
         double sum = 0.0;
+        boolean inUse = false;
         for (int i = 0; i < allPossibilities.size(); i++) {
             Object el = allPossibilities.get(i);
             if (branchOf(el) == null)
                 continue;
             Double v = (Double) probabilities.get(el);
-            sum += v != null ? v.doubleValue() : branchOf(el).getProbability();
+            double value = v != null ? v.doubleValue() : branchOf(el).getProbability();
+            sum += value;
+            if (Math.abs(value - 1.0) > 1e-6)
+                inUse = true;
         }
 
         if (currentInvalid) {
             probabilitySumLabel.setText(Messages.getString("CodeEditorPage.ProbabilityInvalid")); //$NON-NLS-1$
             probabilitySumLabel.setForeground(probabilitySumLabel.getDisplay().getSystemColor(SWT.COLOR_RED));
+        } else if (!inUse) {
+            // all branches at the default 1.0 -> probabilities not in use; stay silent.
+            probabilitySumLabel.setText(""); //$NON-NLS-1$
         } else if (Math.abs(sum - 1.0) > 1e-6) {
             probabilitySumLabel.setText(Messages.getString("CodeEditorPage.ProbabilitySumWarning") + " " + round2(sum)); //$NON-NLS-1$ //$NON-NLS-2$
             probabilitySumLabel.setForeground(probabilitySumLabel.getDisplay().getSystemColor(SWT.COLOR_RED));
