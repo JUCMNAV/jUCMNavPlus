@@ -17,7 +17,7 @@ tests, and runs on Java 21 LTS + Eclipse 2026-03 (4.39). The full Phase A
 SWT leaks, dispose races, thread-affinity issues, GEF generics fallout,
 JDK 21 API drift) are merged. Every push to `master` runs the 328-test
 JUnit suite under a headless Eclipse UI harness as a hard CI gate. The
-current release is **10.0.1**.
+current release is **10.0.2**.
 
 The installable update site is published continuously to GitHub Pages at
 [`https://jucmnav.github.io/jUCMNavPlus/`](https://jucmnav.github.io/jUCMNavPlus/) —
@@ -69,6 +69,7 @@ trail, see [`git log master`](https://github.com/JUCMNAV/jUCMNavPlus/commits/mas
 | **Performance — static slicing** | Cached regex `Pattern` + `LinkedHashSet` for dedup in `Parsing.getVariables` | Slicing large GRL models is meaningfully faster (was hot enough to look hung) |
 | **Resource hygiene** | Per-instance `Color` / `Font` / `Image` allocations routed through `ColorManager` cache and `JFaceResources` registries | No SWT-resource warnings in the Error Log during a long modeling session |
 | **10.0.1 maintenance** | Actor stickman now copies / exports with the correct shape (a draw2d scaled-graphics cache bug had dropped its body and one leg in clipboard / bitmap output); the **UCM Scenario Traversal Algorithm** and **GRL Strategy Evaluation Algorithm** pages are back in the jUCMNav Preferences dialog; more post-dispose crash guards across command-stack and property-sheet refreshes; Z.151 belief author / size and the disabled command-stack + Z.151 round-trip tests are now covered by the suite | Paste or export a diagram containing an Actor and the stickman looks right; reach the traversal settings (max-hit-count loop guard, etc.) and the GRL evaluation settings from the jUCMNav Preferences button again; fewer "widget is disposed" crashes during ordinary drag / undo / save |
+| **10.0.2 — OR-fork branch probabilities** | The Condition Editor (double-click an OR-fork) now edits each branch's **probability** alongside its condition, backed by undo/redo, with a warning when the branch probabilities don't sum to 1.0; the same sum check is available on a dynamic stub's plug-in probabilities. Both checks stay hidden unless probabilities are actually in use (every branch defaults to 1.0). Also: a post-dispose crash guard for the outline page when closing an editor tab | Set and review branch probabilities without digging into the Advanced properties tab, and get told when they don't add up — without nagging the majority of models that don't use probabilities at all |
 
 ## Install
 
