@@ -314,7 +314,8 @@ public class UrnOutlinePage extends ContentOutlinePage implements IAdaptable, IP
             thumbnail = null;
         }
 
-        multieditor.removePageChangeListener(this);
+        if (multieditor != null)
+            multieditor.removePageChangeListener(this);
         DisplayPreferences.getInstance().unregisterListener(this);
 
         super.dispose();
@@ -395,6 +396,14 @@ public class UrnOutlinePage extends ContentOutlinePage implements IAdaptable, IP
      */
     public void init(IPageSite pageSite) {
         super.init(pageSite);
+
+        // During an editor-teardown cascade (closing a tab fires deactivateSite ->
+        // partActivated -> ContentOutline.doCreatePage), the platform can re-init a
+        // cached outline page whose multieditor was already nulled by dispose()
+        // (see UCMNavMultiPageEditor.soleUrnOutlinePage + dispose() at the bottom of
+        // this class). Skip the action-registry wiring rather than NPE.
+        if (multieditor == null)
+            return;
 
         ActionRegistry registry = multieditor.getActionRegistry();
         IActionBars bars = pageSite.getActionBars();
