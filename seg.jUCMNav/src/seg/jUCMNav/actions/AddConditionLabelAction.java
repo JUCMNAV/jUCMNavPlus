@@ -17,6 +17,7 @@ import ucm.map.OrFork;
 import ucm.map.PathNode;
 import ucm.map.StartPoint;
 import ucm.map.WaitingPlace;
+import urncore.Condition;
 
 /**
  * Adds a label to a PathNode or ComponentRef.
@@ -46,26 +47,36 @@ public class AddConditionLabelAction extends URNSelectionAction {
             EditPart part = (EditPart) parts.get(0);
 
             if ((part.getModel() instanceof NodeConnection)) {
-                NodeConnection nc = (NodeConnection) part.getModel();
-                return nc.getCondition() != null && (nc.getCondition().getLabel() == null || nc.getCondition().getLabel().length() == 0);
+                return needsLabel(((NodeConnection) part.getModel()).getCondition());
             } else if (part.getModel() instanceof StartPoint) {
-                StartPoint point = (StartPoint) part.getModel();
-                return point.getPrecondition() != null && (point.getPrecondition()).getLabel() == null || point.getPrecondition().getLabel().length() == 0;
+                return needsLabel(((StartPoint) part.getModel()).getPrecondition());
             } else if (part.getModel() instanceof EndPoint) {
-                EndPoint point = (EndPoint) part.getModel();
-                return (point.getPostcondition() != null && (point.getPostcondition()).getLabel() == null || point.getPostcondition().getLabel().length() == 0);
-
+                return needsLabel(((EndPoint) part.getModel()).getPostcondition());
             } else if ((part.getModel() instanceof OrFork) || (part.getModel() instanceof WaitingPlace) || (part.getModel() instanceof FailurePoint)) {
                 for (Iterator iter = ((PathNode) part.getModel()).getSucc().iterator(); iter.hasNext();) {
-                    NodeConnection nc = (NodeConnection) iter.next();
-                    if (nc.getCondition() != null && (nc.getCondition().getLabel() == null || nc.getCondition().getLabel().length() == 0)) {
+                    if (needsLabel(((NodeConnection) iter.next()).getCondition()))
                         return true;
-                    }
                 }
             }
         }
 
         return false;
+    }
+
+    /**
+     * A condition can be given a label only if it exists and does not already have a
+     * (non-empty) one. Extracted from the per-element branches to fix an operator-
+     * precedence bug: the StartPoint / EndPoint branches read
+     * {@code c != null && c.getLabel() == null || c.getLabel().length() == 0}, where
+     * {@code &&} binds tighter than {@code ||}, so a null pre/postcondition (e.g. an
+     * EndPoint with no postcondition) reached {@code null.getLabel()} and NPEd on any
+     * selection change. Only the NodeConnection branch was correctly parenthesized.
+     *
+     * @param c the condition, possibly null
+     * @return true if a label can/should be added to it
+     */
+    public static boolean needsLabel(Condition c) {
+        return c != null && (c.getLabel() == null || c.getLabel().length() == 0);
     }
 
     /**
@@ -77,16 +88,16 @@ public class AddConditionLabelAction extends URNSelectionAction {
 
         if ((part.getModel() instanceof NodeConnection)) {
             NodeConnection nc = (NodeConnection) part.getModel();
-            if (nc.getCondition() != null && (nc.getCondition().getLabel() == null || nc.getCondition().getLabel().length() == 0))
+            if (needsLabel(nc.getCondition()))
                 return new CreateLabelCommand(nc.getCondition());
         } else if (part.getModel() instanceof StartPoint) {
             StartPoint point = (StartPoint) part.getModel();
-            if (point.getPrecondition() != null && (point.getPrecondition()).getLabel() == null || point.getPrecondition().getLabel().length() == 0) {
+            if (needsLabel(point.getPrecondition())) {
                 return new CreateLabelCommand(point.getPrecondition());
             }
         } else if (part.getModel() instanceof EndPoint) {
             EndPoint point = (EndPoint) part.getModel();
-            if (point.getPostcondition() != null && (point.getPostcondition()).getLabel() == null || point.getPostcondition().getLabel().length() == 0) {
+            if (needsLabel(point.getPostcondition())) {
                 return new CreateLabelCommand(point.getPostcondition());
             }
         } else if ((part.getModel() instanceof OrFork) || (part.getModel() instanceof WaitingPlace) || (part.getModel() instanceof FailurePoint)) {
@@ -95,7 +106,7 @@ public class AddConditionLabelAction extends URNSelectionAction {
             CompoundCommand cmd = new CompoundCommand();
             for (Iterator iter = ((PathNode) part.getModel()).getSucc().iterator(); iter.hasNext();) {
                 NodeConnection nc = (NodeConnection) iter.next();
-                if (nc.getCondition() != null && (nc.getCondition().getLabel() == null || nc.getCondition().getLabel().length() == 0)) {
+                if (needsLabel(nc.getCondition())) {
                     cmd.add(new CreateLabelCommand(nc.getCondition()));
                 }
             }
