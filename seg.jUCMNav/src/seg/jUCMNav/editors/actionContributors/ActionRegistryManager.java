@@ -1022,9 +1022,19 @@ public class ActionRegistryManager implements IDisposable {
     public void updateActions(List actionIds) {
         for (Iterator ids = actionIds.iterator(); ids.hasNext();) {
             IAction action = getActionRegistry().getAction(ids.next());
-            if (null != action && action instanceof UpdateAction)
-                ((UpdateAction) action).update();
-            
+            if (null != action && action instanceof UpdateAction) {
+                try {
+                    ((UpdateAction) action).update();
+                } catch (RuntimeException e) {
+                    // One action's enablement check must never abort the whole loop: the
+                    // remaining (later-registered) actions would keep a stale enabled state
+                    // and silently vanish from context menus -- e.g. "Run All Scenarios"
+                    // disappeared when AddConditionLabelAction NPEd earlier in this list.
+                    JUCMNavPlugin.getDefault().getLog().log(new org.eclipse.core.runtime.Status(
+                            org.eclipse.core.runtime.IStatus.ERROR, "seg.jUCMNav", //$NON-NLS-1$
+                            "Action failed to update its enabled state: " + action.getId(), e)); //$NON-NLS-1$
+                }
+            }
         }
     }
 
