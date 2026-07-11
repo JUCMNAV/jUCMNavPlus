@@ -559,7 +559,13 @@ public class StubBindingsDialog extends Dialog implements Adapter {
         editCondition.setLayoutData(g);
         editCondition.addMouseListener(new MouseAdapter() {
             public void mouseUp(MouseEvent e) {
-                Shell shell = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getShell();
+                // Parent the condition wizard on THIS dialog's shell, not the workbench
+                // shell. StubBindingsDialog is APPLICATION_MODAL, so a wizard parented on
+                // the workbench shell sits *behind* the modal barrier -- the user had to
+                // close the stub dialog before they could type in the condition editor
+                // (inverse of the expected order), and refreshCondition() then ran on the
+                // disposed stub-dialog widgets (SWTException: Widget is disposed).
+                Shell shell = getShell();
                 CodeEditor wizard = new CodeEditor();
                 PluginBinding plug = (PluginBinding) selectedPluginLabel.getData();
 
@@ -1155,7 +1161,13 @@ public class StubBindingsDialog extends Dialog implements Adapter {
     }
 
     private void refreshCondition() {
+        // Defensive: the dialog may already be tearing down when a deferred event
+        // reaches here (SWTException: Widget is disposed at StubBindingsDialog:1158).
+        if (selectedPluginLabel == null || selectedPluginLabel.isDisposed())
+            return;
         PluginBinding plug = (PluginBinding) selectedPluginLabel.getData();
+        if (plug == null)
+            return;
 
         this.preventUpdate = true;
         if (plug.getPrecondition() != null) {
