@@ -57,9 +57,12 @@ public class DeleteInBindingCommand extends Command implements JUCMNavCommand {
         plugin.getIn().remove(in);
         if (start instanceof StartPoint)
         	((StartPoint) start).getInBindings().remove(in);
-        else
+        else if (start instanceof NodeConnection)
         	((NodeConnection) start).getInBindingsPlugin().remove(in);
-        stubEntry.getInBindings().remove(in);
+        // stubEntry is null for a partially-formed / pointcut in-binding; guard it
+        // so unchecking a plugin map cannot NPE (StubBindingsDialog delete path).
+        if (stubEntry != null)
+        	stubEntry.getInBindings().remove(in);
 
         testPostConditions();
     }
@@ -74,9 +77,10 @@ public class DeleteInBindingCommand extends Command implements JUCMNavCommand {
         plugin.getIn().add(index, in);
         if (start instanceof StartPoint)
         	((StartPoint) start).getInBindings().add(in);
-        else
+        else if (start instanceof NodeConnection)
         	((NodeConnection) start).getInBindingsPlugin().add(in);
-        stubEntry.getInBindings().add(in);
+        if (stubEntry != null)
+        	stubEntry.getInBindings().add(in);
 
         testPreConditions();
     }

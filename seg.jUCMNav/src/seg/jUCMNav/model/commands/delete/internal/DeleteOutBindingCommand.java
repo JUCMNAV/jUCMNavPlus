@@ -55,9 +55,12 @@ public class DeleteOutBindingCommand extends Command implements JUCMNavCommand {
         plugin.getOut().remove(out);
         if (end instanceof EndPoint)
         	((EndPoint) end).getOutBindings().remove(out);
-        else
+        else if (end instanceof NodeConnection)
         	((NodeConnection) end).getOutBindingsPlugin().remove(out);
-        stubExit.getOutBindings().remove(out);
+        // stubExit is null for a partially-formed / pointcut out-binding; guard it
+        // so unchecking a plugin map cannot NPE (mirror of DeleteInBindingCommand).
+        if (stubExit != null)
+        	stubExit.getOutBindings().remove(out);
     }
 
     /**
@@ -68,9 +71,10 @@ public class DeleteOutBindingCommand extends Command implements JUCMNavCommand {
         plugin.getOut().add(index, out);
         if (end instanceof EndPoint)
         	((EndPoint) end).getOutBindings().add(out);
-        else
+        else if (end instanceof NodeConnection)
         	((NodeConnection) end).getOutBindingsPlugin().add(out);
-        stubExit.getOutBindings().add(out);
+        if (stubExit != null)
+        	stubExit.getOutBindings().add(out);
     }
 
     /**
