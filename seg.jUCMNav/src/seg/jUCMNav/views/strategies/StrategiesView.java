@@ -260,7 +260,10 @@ public class StrategiesView extends ViewPart implements IPartListener2, ISelecti
                 viewer.getContents().setModel(null);
                 viewer.setContents(null);
             }
-            if (viewer.getControl() != null)
+            // Widget.setData() throws on a disposed control; the platform disposes the
+            // control before this dispose() runs on workbench close, and throwing here
+            // would skip the context-menu/listener cleanup below.
+            if (viewer.getControl() != null && !viewer.getControl().isDisposed())
                 viewer.getControl().setData(null);
 
             if (viewer.getContextMenu() != null) {
