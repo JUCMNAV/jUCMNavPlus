@@ -514,6 +514,10 @@ public class StrategiesView extends ViewPart implements IPartListener2, ISelecti
      * Passing the focus request to the viewer's control.
      */
     public void setFocus() {
+        // dispose() nulls viewer, and the platform can dispose the control before
+        // delivering the last focus/part events -- guard both (cf. ElementView).
+        if (viewer == null || viewer.getControl() == null || viewer.getControl().isDisposed())
+            return;
         if (viewer.getContents() != null) {
             viewer.getControl().setFocus();
         }
