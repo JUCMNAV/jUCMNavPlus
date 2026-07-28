@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Plain (general) project whose only purpose is to make the target definition
+     workspace-resident. Without this file the folder cannot be imported, so
+     seg.jUCMNav.target never appears under Preferences > Plug-in Development >
+     Target Platform and there is nothing to select or Reload. No natures or
+     builders: Tycho builds the target module pomlessly and does not need them. -->
+<projectDescription>
+	<name>seg.jUCMNav.target</name>
+	<comment>jUCMNav target platform definition (Eclipse 2026-03). Import this project, then open seg.jUCMNav.target and click "Set as Active Target Platform".</comment>
+	<projects>
+	</projects>
+	<buildSpec>
+	</buildSpec>
+	<natures>
+	</natures>
+</projectDescription>
