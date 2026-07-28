@@ -256,7 +256,7 @@ public class StrategiesView extends ViewPart implements IPartListener2, ISelecti
             p.setModel(null);
             p.removeNotify();
             p.getChildren().clear();
-            if (viewer.getContents() != null) {
+            if (isViewerAlive() && viewer.getContents() != null) {
                 viewer.getContents().setModel(null);
                 viewer.setContents(null);
             }
@@ -301,7 +301,7 @@ public class StrategiesView extends ViewPart implements IPartListener2, ISelecti
             // bug 709 - if we are no longer selecting a UCM editor, flush the current selection.
             if (!(partRef.getPage().getActiveEditor() instanceof UCMNavMultiPageEditor)) {
                 // multieditor=null;
-                if (viewer.getContents() != null) {
+                if (isViewerAlive() && viewer.getContents() != null) {
                     viewer.getContents().setModel(null);
                     viewer.setContents(null);
                 }
@@ -330,7 +330,7 @@ public class StrategiesView extends ViewPart implements IPartListener2, ISelecti
      */
     public void partClosed(IWorkbenchPartReference partRef) {
         if (partRef.getPart(false) instanceof UCMNavMultiPageEditor && partRef.getPage().getActiveEditor() == null) {
-            if (viewer.getContents() != null) {
+            if (isViewerAlive() && viewer.getContents() != null) {
                 viewer.getContents().setModel(null);
                 viewer.setContents(null);
             }
@@ -517,13 +517,25 @@ public class StrategiesView extends ViewPart implements IPartListener2, ISelecti
      * Passing the focus request to the viewer's control.
      */
     public void setFocus() {
-        // dispose() nulls viewer, and the platform can dispose the control before
-        // delivering the last focus/part events -- guard both (cf. ElementView).
-        if (viewer == null || viewer.getControl() == null || viewer.getControl().isDisposed())
+        if (!isViewerAlive())
             return;
         if (viewer.getContents() != null) {
             viewer.getControl().setFocus();
         }
+    }
+
+    /**
+     * True when the viewer still has a live SWT control behind it.
+     *
+     * dispose() nulls viewer, and on workbench close the platform disposes the
+     * control BEFORE delivering the final partClosed/partActivated events, so a
+     * plain {@code viewer != null} check is not enough. In particular GEF's
+     * RootTreeEditPart.setContents() calls {@code ((Tree) getWidget()).removeAll()}
+     * guarded only by a null check, so viewer.setContents(null) on a disposed tree
+     * raises "SWTException: Widget is disposed".
+     */
+    private boolean isViewerAlive() {
+        return viewer != null && viewer.getControl() != null && !viewer.getControl().isDisposed();
     }
 
     /*
