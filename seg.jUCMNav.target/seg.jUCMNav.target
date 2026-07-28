@@ -4,11 +4,14 @@
      Set this as the active target (Window > Preferences > Plug-in Development >
      Target Platform, or open this file and click "Set as Active Target Platform").
 
-     NOTE: The installable unit (IU) IDs below are the usual feature group IDs,
-     but exact IDs can vary by release. If resolution fails, open this file in the
-     Target Editor, use Add > Software Site against the same URL, and pick the
-     features interactively — then let Claude Code reconcile this file to match. -->
-<target name="seg.jUCMNav Target (2026-03)" sequenceNumber="5">
+     NOTE: every unit id below was verified to exist in this repository's p2
+     metadata (releases/2026-03/202603111000/content.jar). p2 fails the WHOLE
+     target if a single unit cannot be located -- which is what "everything is a
+     Missing Constraint" in the Target Platform State view actually means, so
+     check the Locations tab for "Unable to locate installable unit X" first.
+     Bump sequenceNumber whenever this file is hand-edited, or PDE may keep a
+     cached resolution. -->
+<target name="seg.jUCMNav Target (2026-03)" sequenceNumber="6">
   <locations>
     <location includeAllPlatforms="false" includeConfigurePhase="true"
               includeMode="planner" includeSource="true" type="InstallableUnit">
@@ -21,10 +24,12 @@
       <unit id="org.eclipse.emf.sdk.feature.group" version="0.0.0"/>
       <!-- GEF Classic (draw2d + GEF editors) -->
       <unit id="org.eclipse.gef.feature.group" version="0.0.0"/>
-      <!-- MDT/OCL (constraints) -->
-      <unit id="org.eclipse.ocl.all.feature.group" version="0.0.0"/>
-      <!-- JUnit (for plug-in tests) -->
-      <unit id="org.eclipse.jdt.junit.feature.group" version="0.0.0"/>
+      <!-- MDT/OCL (constraints). NB: "org.eclipse.ocl.all.feature.group" does NOT
+           exist in the 2026-03 repo; the umbrella feature is .all.sdk. -->
+      <unit id="org.eclipse.ocl.all.sdk.feature.group" version="0.0.0"/>
+      <!-- JDT, which carries the JUnit tooling. NB: there is no separate
+           "org.eclipse.jdt.junit.feature.group" in the 2026-03 repo. -->
+      <unit id="org.eclipse.jdt.feature.group" version="0.0.0"/>
       <!-- The JUnit *runtime* bundles, listed explicitly. The jdt.junit feature above
            is the JDT JUnit tooling (launcher/UI) and does not guarantee that the
            org.junit bundle itself is provisioned into the target, so the test
