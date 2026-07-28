@@ -25,6 +25,15 @@
       <unit id="org.eclipse.ocl.all.feature.group" version="0.0.0"/>
       <!-- JUnit (for plug-in tests) -->
       <unit id="org.eclipse.jdt.junit.feature.group" version="0.0.0"/>
+      <!-- The JUnit *runtime* bundles, listed explicitly. The jdt.junit feature above
+           is the JDT JUnit tooling (launcher/UI) and does not guarantee that the
+           org.junit bundle itself is provisioned into the target, so the test
+           fragment's "Require-Bundle: org.junit" failed to resolve in the IDE with
+           "Cannot find class 'org.junit.Test' on project build path" -- even though
+           the headless Tycho build resolves it fine from the same p2 repository.
+           org.hamcrest is org.junit 4.13's own dependency. -->
+      <unit id="org.junit" version="0.0.0"/>
+      <unit id="org.hamcrest" version="0.0.0"/>
       <!-- Jakarta XML Binding API + runtime. Z.151 import/export uses JAXB; the
            API alone (jakarta.xml.bind-api) is not enough -- jakarta.xml.bind's
            ContextFinder needs the registered ContextFactory from the runtime
