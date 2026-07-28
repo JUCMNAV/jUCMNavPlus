@@ -30,7 +30,6 @@ public class GeneralPreferencesActionDelegate implements IEditorActionDelegate {
 			"seg.jUCMNav.views.preferences.ScenarioTraversalPreferencePage",
 			"seg.jUCMNav.views.preferences.StrategyEvaluationPreferencePage",
 			"seg.jUCMNav.views.preferences.ScenarioExportPreferencePage",
-			"seg.jUCMNav.views.preferences.KPIMonitoringPreferencePage",
 			"seg.jUCMNav.views.preferences.ReportGeneratorPreferencePage",
 			"seg.jUCMNav.views.preferences.StaticSemanticPreferencesPage",
 			"seg.jUCMNav.views.preferences.DisplayPreferencesPage",

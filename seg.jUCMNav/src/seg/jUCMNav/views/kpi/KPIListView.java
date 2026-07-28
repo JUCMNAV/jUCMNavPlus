@@ -38,7 +38,6 @@ import seg.jUCMNav.editors.actionContributors.KPIListViewContextMenuProvider;
 import seg.jUCMNav.editparts.kpiTreeEditparts.IndicatorTreeEditPart;
 import seg.jUCMNav.editparts.kpiTreeEditparts.KPIRootEditPart;
 import seg.jUCMNav.editparts.kpiTreeEditparts.KPITreeEditPartFactory;
-import seg.jUCMNav.kpi.KPIValueResources;
 import seg.jUCMNav.strategies.EvaluationStrategyManager;
 import seg.jUCMNav.views.JUCMNavRefreshableView;
 import seg.jUCMNav.views.preferences.DisplayPreferences;
@@ -57,7 +56,6 @@ public class KPIListView extends ViewPart implements IPartListener2, ISelectionC
     private Indicator currentIndicator;
     private IndicatorTreeEditPart currentSelection;
 
-    private IAction retrieveKPIValues;
     private IAction showNodeNumberAction;
 
     /**
@@ -80,64 +78,12 @@ public class KPIListView extends ViewPart implements IPartListener2, ISelectionC
         viewer.createControl(parent);
         getSite().setSelectionProvider(viewer);
 
-        retrieveKPIValues = new Action() {
-            public void run() {
-                // tree view
-                if (viewer != null && viewer.getRootEditPart().getChildren().size() > 0) {
-                    KPIRootEditPart root = ((KPIRootEditPart) viewer.getRootEditPart().getChildren().get(0));
-                    GRLspec grlSpec = ((UCMNavMultiPageEditor) root.getModel()).getModel().getGrlspec();
-
-                    List evalObjects = new ArrayList();
-                    List strategiesGroup = grlSpec.getGroups();
-                    for (int i = 0; i < strategiesGroup.size(); i++) {
-                        StrategiesGroup group = (StrategiesGroup) strategiesGroup.get(i);
-                        for (int j = 0; j < group.getStrategies().size(); j++) {
-                            EvaluationStrategy strategy = (EvaluationStrategy) group.getStrategies().get(j);
-
-                            EvaluationStrategyManager strategyManager = EvaluationStrategyManager.getInstance();
-                            EvaluationStrategy triggeredStrategy = strategyManager.getEvaluationStrategy();
-                            for (int n = 0; n < grlSpec.getIntElements().size(); n++) {
-                                if (grlSpec.getIntElements().get(n) instanceof Indicator) {
-                                    Indicator ind = (Indicator) grlSpec.getIntElements().get(n);
-
-                                    strategyManager.setStrategy(strategy);
-                                    Evaluation eval = strategyManager.getEvaluationObject(ind);
-
-                                    eval.setIntElement(ind);
-                                    eval.setStrategies(strategy);
-                                    evalObjects.add(eval);
-                                }
-                            }
-
-                            strategyManager.setStrategy(triggeredStrategy);
-                        }
-                    }
-
-                    if (evalObjects.size() > 0) {
-                        // KPI value retrieval was a SOAP/JAX-RPC web service (seg.jUCMNav.kpi.ws.*,
-                        // backed by Apache Axis 1.x). JAX-RPC was removed from the JDK and has no
-                        // Jakarta successor, so the implementation is gone. Surfaces the same
-                        // "KPIListView.0" error message the original catch block used.
-                        KPIValueResources kpiValueRes = new KPIValueResources() {
-                            public void requestKPIValues(java.util.List evalObjects) {
-                                throw new UnsupportedOperationException("KPI web-service retrieval is not available in this build");
-                            }
-                        };
-
-                        try {
-                            kpiValueRes.requestKPIValues(evalObjects);
-                        } catch (Throwable th) {
-                            System.out.println(Messages.getString("KPIListView.0")); //$NON-NLS-1$
-                        }
-                    }
-
-                }
-            }
-        };
-
-        retrieveKPIValues.setImageDescriptor(JUCMNavPlugin.getImageDescriptor("icons/refresh.gif")); //$NON-NLS-1$
-        retrieveKPIValues.setToolTipText(Messages.getString("KPIListView.Retrieve")); //$NON-NLS-1$
-        retrieveKPIValues.setText(Messages.getString("KPIListView.Retrieve")); //$NON-NLS-1$
+        // The "Retrieve KPI Values" toolbar action was removed with the KPI web-service
+        // feature (issue #1). It called a SOAP/JAX-RPC service via Apache Axis 1.x;
+        // JAX-RPC was deleted from the JDK and has no Jakarta successor, so the
+        // implementation went away during the Java 21 migration and the button had been
+        // left doing nothing (its failure was swallowed to System.out). Retired rather
+        // than re-implemented -- there is no monitoring backend to talk to.
 
         DisplayPreferences.getInstance().registerListener(this);
 
@@ -154,12 +100,7 @@ public class KPIListView extends ViewPart implements IPartListener2, ISelectionC
         showNodeNumberAction.setChecked(DisplayPreferences.getInstance().getShowNodeNumber());
 
         IToolBarManager tbm = getViewSite().getActionBars().getToolBarManager();
-        tbm.add(retrieveKPIValues);
-        tbm.add(new Separator());
         tbm.add(showNodeNumberAction);
-
-        IMenuManager manager = getViewSite().getActionBars().getMenuManager();
-        manager.add(retrieveKPIValues);
     }
 
     /**
@@ -198,7 +139,6 @@ public class KPIListView extends ViewPart implements IPartListener2, ISelectionC
         multieditor = null;
         currentIndicator = null;
         currentSelection = null;
-        retrieveKPIValues = null;
         showNodeNumberAction = null;
     }
 

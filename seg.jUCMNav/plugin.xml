@@ -468,11 +468,6 @@
             name="%ScenarioExportPreferences"/>
       <page
             category="seg.jUCMNav.views.preferences.GeneralPreferencePage"
-            class="seg.jUCMNav.views.preferences.KPIMonitoringPreferencePage"
-            id="seg.jUCMNav.views.preferences.KPIMonitoringPreferencePage"
-            name="%KPIMonitoringPreferences"/>
-      <page
-            category="seg.jUCMNav.views.preferences.GeneralPreferencePage"
             class="seg.jUCMNav.views.preferences.ReportGeneratorPreferencePage"
             id="seg.jUCMNav.views.preferences.ReportGeneratorPreferencePage"
             name="%ReportGeneratorPreferences"/>

@@ -52,7 +52,6 @@ public class PreferenceInitializer extends AbstractPreferenceInitializer {
         ScenarioTraversalPreferences.createPreferences();
         StrategyEvaluationPreferences.createPreferences();
         ScenarioExportPreferences.createPreferences();
-        KPIMonitoringPreferences.createPreferences();
         ReportGeneratorPreferences.createPreferences();
         DeletePreferences.createPreferences();
         DisplayPreferences.createPreferences();
