@@ -158,7 +158,8 @@ public class ElementView extends ViewPart implements IPartListener2, ISelectionC
      * Passing the focus request to the viewer's control.
      */
     public void setFocus() {
-        viewer.getControl().setFocus();
+        if (isViewerAlive())
+            viewer.getControl().setFocus();
     }
 
     /*
@@ -197,7 +198,8 @@ public class ElementView extends ViewPart implements IPartListener2, ISelectionC
     public void partClosed(IWorkbenchPartReference partRef) {
         if (partRef.getPart(false) instanceof UCMNavMultiPageEditor && partRef.getPage().getActiveEditor() == null || partRef.getPart(false) == this) {
             setInput(null);
-            viewer.setInput(new ArrayList());
+            if (isViewerAlive())
+                viewer.setInput(new ArrayList());
             if (partRef.getPart(false) == this) {
                 getSite().getPage().addPartListener(this);
                 getViewSite().getActionBars().clearGlobalActionHandlers();
@@ -263,7 +265,9 @@ public class ElementView extends ViewPart implements IPartListener2, ISelectionC
     private void setEditor(IWorkbenchPartReference partRef) {
         if (partRef.getPage().getActiveEditor() instanceof UCMNavMultiPageEditor) {
             setEditor((UCMNavMultiPageEditor) partRef.getPage().getActiveEditor());
-            setInput((editor.getCurrentPage()).getModel());
+            // getCurrentPage() is null once the editor's pages are being torn down.
+            if (editor != null && editor.getCurrentPage() != null)
+                setInput(editor.getCurrentPage().getModel());
         }
     }
 
@@ -278,7 +282,8 @@ public class ElementView extends ViewPart implements IPartListener2, ISelectionC
             this.editor.removePageChangeListener(this);
         }
         this.editor = editor;
-        editor.getCurrentPage().getGraphicalViewer().addSelectionChangedListener(this);
+        if (editor.getCurrentPage() != null && editor.getCurrentPage().getGraphicalViewer() != null)
+            editor.getCurrentPage().getGraphicalViewer().addSelectionChangedListener(this);
         editor.addPageChangeListener(this);
 
         // register them. other ways failed to add undo/redo, only added delete.
@@ -297,8 +302,22 @@ public class ElementView extends ViewPart implements IPartListener2, ISelectionC
         bars.setGlobalActionHandler(id, editor.getActionRegistry().getAction(id));
     }
 
+    /**
+     * True when the viewer still has a live SWT control behind it.
+     *
+     * The platform delivers partActivated / partClosed to this listener while the
+     * workbench (or this view) is being torn down -- e.g. closing the workbench
+     * window disposes the widget, then fires partClosed. Touching the viewer then
+     * raises "IllegalStateException: Need an underlying widget to be able to set
+     * the input.(Has the widget been disposed?)". A plain {@code viewer != null}
+     * check is not enough: the viewer object outlives its control.
+     */
+    private boolean isViewerAlive() {
+        return viewer != null && viewer.getControl() != null && !viewer.getControl().isDisposed();
+    }
+
     private void setInput(IURNDiagram input) {
-        if (viewer != null) {
+        if (isViewerAlive()) {
             if (input == null) {
                 viewer.setInput(new ArrayList());
 
@@ -371,7 +390,8 @@ public class ElementView extends ViewPart implements IPartListener2, ISelectionC
             }
             sel = new StructuredSelection(items);
 
-            viewer.setSelection(sel);
+            if (isViewerAlive())
+                viewer.setSelection(sel);
         }
     }
 
@@ -381,7 +401,8 @@ public class ElementView extends ViewPart implements IPartListener2, ISelectionC
      * @see seg.jUCMNav.editors.IPageChangeListener#pageChanged()
      */
     public void pageChanged() {
-        setInput((editor.getCurrentPage()).getModel());
+        if (editor != null && editor.getCurrentPage() != null)
+            setInput(editor.getCurrentPage().getModel());
     }
 
     /*
