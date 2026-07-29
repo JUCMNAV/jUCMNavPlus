@@ -6,7 +6,7 @@
 
      NOTE: every unit id below was verified to exist in this repository's p2
      metadata (releases/2026-03/202603111000/content.jar). p2 fails the WHOLE
-     target if a single unit cannot be located -- which is what "everything is a
+     target if a single unit cannot be located - which is what "everything is a
      Missing Constraint" in the Target Platform State view actually means, so
      check the Locations tab for "Unable to locate installable unit X" first.
      Bump sequenceNumber whenever this file is hand-edited, or PDE may keep a
