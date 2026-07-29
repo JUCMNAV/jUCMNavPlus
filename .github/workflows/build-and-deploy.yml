@@ -8,6 +8,12 @@ name: Build and publish update site
 # GitHub Actions artifact so PRs from feature branches can be installed
 # locally for testing without waiting for a release.
 #
+# Publishing a GitHub release rebuilds at that tag and attaches the update
+# site as jucmnav-update-site-<tag>.zip, giving each version a permanent,
+# installable artifact. That path deliberately does NOT touch Pages: a
+# release can be published from an older tag, and deploying it would
+# overwrite the live site with a stale build.
+#
 # Tests: seg.jUCMNav.tests/ is an eclipse-test-plugin fragment of
 # seg.jUCMNav. `mvn -B clean verify` runs the JUnit suite inside a headless
 # Eclipse UI harness; failures fail this workflow. See `seg.jUCMNav.tests/pom.xml`
@@ -23,10 +29,16 @@ on:
     branches: [ master, modernization ]
     tags: [ 'v*' ]
   pull_request:
+  # Publishing a release rebuilds at that tag and attaches the update site as a
+  # downloadable zip. This is a separate trigger from the tag push above because
+  # a release is often published from a tag that already exists, in which case no
+  # push event fires at all.
+  release:
+    types: [ published ]
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write   # required to upload release assets
   pages: write
   id-token: write
 
@@ -69,14 +81,33 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      # On a published release: attach the built update site as a versioned zip
+      # so a specific version can be installed offline or archived, independently
+      # of the rolling Pages site (which always serves the newest master build).
+      - name: Attach update site to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          ZIP=$(ls seg.jUCMNav.repository/target/*.zip | head -n1)
+          ASSET="jucmnav-update-site-${TAG}.zip"
+          cp "$ZIP" "$ASSET"
+          gh release upload "$TAG" "$ASSET" --clobber --repo "$GITHUB_REPOSITORY"
+
       # Only on master / tags: drop a landing page into the update site so
       # the Pages root URL doesn't 404 (the p2 repo itself has no index.html),
       # then prepare the Pages artifact for deploy.
+      #
+      # Deliberately NOT on release events: a release can be published from an
+      # old tag, and deploying that build would overwrite the live update site
+      # with an older version. Releases only attach their own zip (above).
       # Pages URL and source URL are derived from the runtime workflow
       # context so they keep working after a repo transfer (e.g. from
       # damyot/ to JUCMNAV/) without a manual template edit.
       - name: Generate landing page
-        if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
+        if: github.event_name != 'release' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
         env:
           OWNER: ${{ github.repository_owner }}
           REPO_NAME: ${{ github.event.repository.name }}
@@ -115,14 +146,14 @@ jobs:
           EOF
 
       - name: Upload update site (Pages artifact)
-        if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
+        if: github.event_name != 'release' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
         uses: actions/upload-pages-artifact@v5
         with:
           path: seg.jUCMNav.repository/target/repository
 
   deploy:
     needs: build
-    if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name != 'release' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))
     runs-on: ubuntu-latest
     environment:
       name: github-pages
