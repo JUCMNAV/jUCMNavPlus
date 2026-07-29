@@ -1,8 +1,10 @@
 package seg.jUCMNav.figures.router;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.Vector;
 
 import org.eclipse.draw2d.AbstractRouter;
@@ -309,12 +311,20 @@ public class UCMConnectionRouter extends AbstractRouter implements Adapter {
      * @param qSpline
      *            the query returning the spline to refresh
      */
-    private void refreshConnections(ConnectionSplineFinder.QFindSpline qSpline) {
+    private void refreshConnections(ConnectionSplineFinder.QFindSpline qSpline, Set<NodeConnection> visited) {
+        NodeConnection start = qSpline.getStartNodeConnection();
+        if (start != null && visited.contains(start))
+            return; // this spline has already been expanded during this refresh
+
         ConnectionSplineFinder.RSpline rReachableConnections = (ConnectionSplineFinder.RSpline) GraphExplorer.run(qSpline);
         Vector vReachable = rReachableConnections.getConnections();
 
         for (Iterator iter = vReachable.iterator(); iter.hasNext();) {
             NodeConnection nc = (NodeConnection) iter.next();
+            // Record every connection on this spline as expanded. Marking below is
+            // idempotent, so skipping a spline we have already walked loses nothing
+            // and is what stops the AndFork/AndJoin recursion from cycling.
+            visited.add(nc);
             // never want to redraw connects
             if (nc.getSource() instanceof Connect || nc.getTarget() instanceof Connect)
                 connections.put(nc, Boolean.TRUE);
@@ -322,50 +332,71 @@ public class UCMConnectionRouter extends AbstractRouter implements Adapter {
                 connections.put(nc, Boolean.FALSE);
             }
         }
+        if (start != null)
+            visited.add(start);
 
         if (vReachable.size() > 0 && ((NodeConnection) vReachable.lastElement()).getTarget() instanceof AndFork) {
             for (Iterator iter = ((NodeConnection) vReachable.lastElement()).getTarget().getSucc().iterator(); iter.hasNext();) {
                 NodeConnection nc = (NodeConnection) iter.next();
-                refreshConnections(nc);
+                refreshConnections(nc, visited);
             }
         }
 
         if (vReachable.size() > 0 && ((NodeConnection) vReachable.firstElement()).getSource() instanceof AndJoin) {
             for (Iterator iter = ((NodeConnection) vReachable.firstElement()).getSource().getPred().iterator(); iter.hasNext();) {
                 NodeConnection nc = (NodeConnection) iter.next();
-                refreshConnections(nc);
+                refreshConnections(nc, visited);
             }
         }
     }
 
     /**
      * Given a NodeConnection, refresh spline containing it.
-     * 
+     *
      * @param nc
      *            the node connection
      */
     private void refreshConnections(NodeConnection nc) {
+        refreshConnections(nc, new HashSet<NodeConnection>());
+    }
+
+    /**
+     * Refreshes the spline containing nc, tracking which splines have already been
+     * walked so that a path looping through an AndFork/AndJoin cannot recurse
+     * forever (issue #24 / legacy #930: this used to StackOverflowError).
+     *
+     * @param nc
+     *            the node connection
+     * @param visited
+     *            connections whose spline has already been expanded in this refresh
+     */
+    private void refreshConnections(NodeConnection nc, Set<NodeConnection> visited) {
+        if (visited.contains(nc))
+            return;
         QFindSpline qReachableConnections = new ConnectionSplineFinder().new QFindSpline(nc);
-        refreshConnections(qReachableConnections);
+        refreshConnections(qReachableConnections, visited);
     }
 
     /**
      * Given a PathNode, refresh the splines containing it (there may be many)
-     * 
+     *
      * @param pn
      *            the path node
      */
     private void refreshConnections(PathNode pn) {
         if (pn instanceof Connect)
             return;
+        // One visited set for the whole node: the predecessor and successor splines
+        // of a fork/join meet, so sharing it also avoids redundant re-walking.
+        Set<NodeConnection> visited = new HashSet<NodeConnection>();
         QFindSpline qReachableConnections;
         for (Iterator iter = pn.getPred().iterator(); iter.hasNext();) {
             qReachableConnections = new ConnectionSplineFinder().new QFindSpline((NodeConnection) iter.next());
-            refreshConnections(qReachableConnections);
+            refreshConnections(qReachableConnections, visited);
         }
         for (Iterator iter = pn.getSucc().iterator(); iter.hasNext();) {
             qReachableConnections = new ConnectionSplineFinder().new QFindSpline((NodeConnection) iter.next());
-            refreshConnections(qReachableConnections);
+            refreshConnections(qReachableConnections, visited);
         }
 
     }
