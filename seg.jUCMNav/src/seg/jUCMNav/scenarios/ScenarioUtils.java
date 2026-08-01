@@ -4,7 +4,9 @@ import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Vector;
 
 import org.eclipse.emf.ecore.EObject;
@@ -71,6 +73,30 @@ public class ScenarioUtils {
     public static boolean IS_ELSE_CONDITION_ALLOWED = true;
 
     private static HashMap<UcmEnvironment, IScenarioTraversalAlgorithm> traversals = new HashMap<UcmEnvironment, IScenarioTraversalAlgorithm>();
+
+    /** how many distinct expressions to keep parsed; see {@link #parsedExpressions} */
+    private static final int PARSE_CACHE_SIZE = 10000;
+
+    /**
+     * Syntax trees of expressions we have already parsed, keyed by the expression source.
+     *
+     * The same handful of condition and responsibility expressions is evaluated over and
+     * over -- once per visit of the owning node, in every scenario. Re-running javacc on the
+     * same string each time dominates the cost of running a large scenario suite. The AST is
+     * read-only after parsing (neither jUCMNavTypeChecker nor UcmExpressionEvaluator writes
+     * to it -- the evaluator only writes into the UcmEnvironment), so it is safe to share.
+     *
+     * Only the syntax phase is cached; type checking still runs on every call because it
+     * depends on the environment.
+     */
+    private static final Map<String, Object> parsedExpressions =
+            new LinkedHashMap<String, Object>(256, 0.75f, true) {
+                private static final long serialVersionUID = 1L;
+
+                protected boolean removeEldestEntry(Map.Entry<String, Object> eldest) {
+                    return size() > PARSE_CACHE_SIZE;
+                }
+            };
 
 	public static DynamicContext getDynContext() {
         return dynContext;
@@ -738,17 +764,39 @@ public class ScenarioUtils {
     private static Object parse(String code, UcmEnvironment env, boolean isResponsibility, jUCMNavType expectedType) {
         SimpleNode n = null;
 
-        // syntax checking
-        try {
+        // syntax checking. Responsibilities and conditions use different productions, so the
+        // cache key has to distinguish them.
+        String cacheKey = (isResponsibility ? "R " : "C ") + code; //$NON-NLS-1$ //$NON-NLS-2$
+        Object cached;
+        synchronized (parsedExpressions) {
+            cached = parsedExpressions.get(cacheKey);
+        }
 
-            jUCMNavParser.ReInit(new StringReader(code));
-            if (isResponsibility)
-                n = jUCMNavParser.StartResponsibility();
-            else
-                n = jUCMNavParser.Start();
+        if (cached instanceof String)
+            return cached; // a syntax error; deterministic for this code, no need to re-parse
 
-        } catch (Throwable t) {
-            return Messages.getString("ScenarioUtils.ParserErrorOccurred") + t.getMessage(); //$NON-NLS-1$
+        if (cached instanceof SimpleNode) {
+            n = (SimpleNode) cached;
+        } else {
+            try {
+
+                jUCMNavParser.ReInit(new StringReader(code));
+                if (isResponsibility)
+                    n = jUCMNavParser.StartResponsibility();
+                else
+                    n = jUCMNavParser.Start();
+
+            } catch (Throwable t) {
+                String error = Messages.getString("ScenarioUtils.ParserErrorOccurred") + t.getMessage(); //$NON-NLS-1$
+                synchronized (parsedExpressions) {
+                    parsedExpressions.put(cacheKey, error);
+                }
+                return error;
+            }
+
+            synchronized (parsedExpressions) {
+                parsedExpressions.put(cacheKey, n);
+            }
         }
 
         // type checking
