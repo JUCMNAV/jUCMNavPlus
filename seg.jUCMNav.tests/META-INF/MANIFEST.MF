@@ -3,7 +3,7 @@ Bundle-ManifestVersion: 2
 Bundle-Name: jUCMNav Tests
 Bundle-SymbolicName: seg.jUCMNav.tests;singleton:=true
 Automatic-Module-Name: seg.jUCMNav.tests
-Bundle-Version: 10.0.4.qualifier
+Bundle-Version: 10.0.5.qualifier
 Bundle-Vendor: %providerName
 Bundle-Localization: plugin
 Bundle-RequiredExecutionEnvironment: JavaSE-21

@@ -15,9 +15,9 @@ Classic (diagram editors), and MDT/OCL (constraints).
 tests, and runs on Java 21 LTS + Eclipse 2026-03 (4.39). The full Phase A
 (compile-clean, Tycho build, p2 update site) and Phase B (QA bug hunt:
 SWT leaks, dispose races, thread-affinity issues, GEF generics fallout,
-JDK 21 API drift) are merged. Every push to `master` runs the 328-test
+JDK 21 API drift) are merged. Every push to `master` runs the 337-test
 JUnit suite under a headless Eclipse UI harness as a hard CI gate. The
-current release is **10.0.4**.
+current release is **10.0.5**.
 
 The installable update site is published continuously to GitHub Pages at
 [`https://jucmnav.github.io/jUCMNavPlus/`](https://jucmnav.github.io/jUCMNavPlus/) —
@@ -72,6 +72,7 @@ trail, see [`git log master`](https://github.com/JUCMNAV/jUCMNavPlus/commits/mas
 | **10.0.2 — OR-fork branch probabilities** | The Condition Editor (double-click an OR-fork) edits each branch's probability with undo/redo, warning when they don't sum to 1.0 — same check for dynamic-stub plug-ins, and both stay hidden unless probabilities are actually in use; static slicing moved off the UI thread behind a cancellable dialog; test suite migrated to JUnit 4 | Set branch probabilities without digging into the Advanced tab and get told when they don't add up, without nagging models that don't use them; slicing a large model no longer freezes the workbench |
 | **10.0.3 — crash & menu fixes** | Selecting a start/end point with no condition no longer throws (operator-precedence bug in `AddConditionLabelAction`), and action enablement is now refreshed per-action so one failure can't blank a whole context menu; the dynamic-stub condition wizard opens on top of its modal dialog and unchecking a plug-in no longer NPEs; disposed-control guards across the Elements, KPI, Strategies and Dynamic Contexts views | Clicking an end point, closing the workbench, or editing a stub condition no longer fills the error log — and menu items that quietly disappeared, like "Run All Scenarios", are back |
 | **10.0.4 — AND-fork loop crash** | Routing a path that loops back through an AND-fork or AND-join no longer throws `StackOverflowError` — the connection router's spline walk now tracks which splines it has already expanded (a bug open since 2015 as legacy #930) | Draw a loop through an AND-fork, which is legal UCM, and the diagram keeps working instead of filling the error log and becoming unusable |
+| **10.0.5 — large-model performance** | Three quadratic hot spots removed: same-document ID references now resolve through an id map instead of a full model walk per reference; enumeration values are indexed instead of scanned on every variable reference; expression syntax trees are cached instead of re-parsed on every evaluation. Plus: multi-line responsibility and stub names no longer truncate to their first line in the outline and list views, and a fly-out submenu is no longer disposed while Windows still tracks it | A 3.7 MB generated model (30 maps, 1155 scenarios) opens in 10 s instead of 167 s, and running all 1155 scenario definitions takes 28 s instead of not finishing at all |
 
 ## Install
 
