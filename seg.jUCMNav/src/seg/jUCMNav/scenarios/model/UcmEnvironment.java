@@ -4,8 +4,10 @@ import grl.GRLspec;
 import grl.GrlPackage;
 import grl.IntentionalElement;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Vector;
 
 import org.eclipse.emf.common.notify.Adapter;
@@ -36,6 +38,20 @@ public class UcmEnvironment implements Adapter, Cloneable {
     private HashMap<String, String[]> enumerations;
     private HashMap<String, Object> valuations;
 
+    /**
+     * Reverse index over {@link #enumerations}: lower-cased enumeration value -&gt; the names of
+     * the enumerations that declare it.
+     *
+     * {@link #checkVariableExists(String)} and {@link #getValue(String, boolean)} both need to
+     * know which enumerations, if any, a name belongs to, and both used to answer that by
+     * scanning every value of every enumeration with equalsIgnoreCase. That scan runs on every
+     * variable reference of every expression evaluated during a traversal -- and conditions
+     * refer to enumeration values by name, so it is the hot path, not a rare one. An
+     * enumeration with one value per scenario (which is what generated models produce) then
+     * makes running the scenario suite quadratic.
+     */
+    private HashMap<String, List<String>> enumerationValues;
+
     private URNspec urn;
 
     /**
@@ -48,6 +64,7 @@ public class UcmEnvironment implements Adapter, Cloneable {
         declarations = new HashMap<String, Object>();
         valuations = new HashMap<String, Object>();
         enumerations = new HashMap<String, String[]>();
+        enumerationValues = new HashMap<String, List<String>>();
 
         if (urn != null)
             registerUCMspec(urn.getUcmspec());
@@ -135,24 +152,21 @@ public class UcmEnvironment implements Adapter, Cloneable {
     public jUCMNavType checkVariableExists(String var) {
         var = var.toLowerCase();
         Object type = declarations.get(var);
-  
-                
-        // removed for bug 506. 
+
+
+        // removed for bug 506.
         //if (type == null || !(type instanceof jUCMNavType)) {
 
-        for (Iterator iter = enumerations.keySet().iterator(); iter.hasNext();) {
-            String enumName = (String) iter.next();
-            String[] values = (String[]) enumerations.get(enumName);
-
-            for (int i = 0; i < values.length; i++) {
-                String val = values[i];
-                if (val.equalsIgnoreCase(var)) {
-                    if (type == null)
-                        type = new jUCMNavType(jUCMNavType.ENUMERATION + enumName);
-                    else
-                        ((jUCMNavType) type).addEnumerationType(jUCMNavType.ENUMERATION + enumName);
-                }
-
+        // Which enumerations, if any, declare var as one of their values. Straight lookup
+        // rather than a scan over every value of every enumeration; see enumerationValues.
+        List<String> owningEnumerations = enumerationValues.get(var);
+        if (owningEnumerations != null) {
+            for (Iterator<String> iter = owningEnumerations.iterator(); iter.hasNext();) {
+                String enumName = iter.next();
+                if (type == null)
+                    type = new jUCMNavType(jUCMNavType.ENUMERATION + enumName);
+                else
+                    ((jUCMNavType) type).addEnumerationType(jUCMNavType.ENUMERATION + enumName);
             }
         }
         if (type == null)
@@ -242,6 +256,17 @@ public class UcmEnvironment implements Adapter, Cloneable {
             throw new IllegalArgumentException(Messages.getString("UcmEnvironment.EnumerationMustHaveValues")); //$NON-NLS-1$
 
         enumerations.put(enumName, values);
+
+        for (int i = 0; i < values.length; i++) {
+            String lowered = values[i].toLowerCase();
+            List<String> owners = enumerationValues.get(lowered);
+            if (owners == null) {
+                owners = new ArrayList<String>(1);
+                enumerationValues.put(lowered, owners);
+            }
+            if (!owners.contains(enumName))
+                owners.add(enumName);
+        }
 
         for (int i = 0; i < values.length; i++) {
             String value = values[i];
@@ -374,15 +399,11 @@ public class UcmEnvironment implements Adapter, Cloneable {
             // if we don't have a value by default. 
             if (value.getSecondaryEnumerationValue() == null || value.getSecondaryEnumerationValue().length()==0)
             {
-                boolean found = false;
-                for (Iterator it = enumerations.values().iterator(); it.hasNext();) {
-                    String[] enumValues = (String[]) it.next();
-                    for (int i = 0; i < enumValues.length; i++) {
-                        if (enumValues[i].equalsIgnoreCase(var))
-                            found = true;
-                    }
-                }
-                
+                // same membership question the loop over every enumeration value used to
+                // answer, one hash lookup instead. See enumerationValues.
+                boolean found = enumerationValues.containsKey(lower);
+
+
                 if (!found)  {
                     value.setSecondaryEnumerationValue(null); // ensure is null and not empty. 
                 }
@@ -554,10 +575,12 @@ public class UcmEnvironment implements Adapter, Cloneable {
         if (this.urn == null) {
             declarations.clear();
             enumerations.clear();
+            enumerationValues.clear();
             valuations.clear();
         } else {
             declarations.clear();
             enumerations.clear();
+            enumerationValues.clear();
             HashMap oldValuations = (HashMap) valuations.clone();
             valuations.clear();
 
