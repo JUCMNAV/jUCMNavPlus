@@ -13,6 +13,7 @@ import org.eclipse.emf.common.util.URI;
 import org.eclipse.emf.ecore.EObject;
 import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.resource.ResourceSet;
+import org.eclipse.emf.ecore.resource.impl.ResourceImpl;
 import org.eclipse.emf.ecore.resource.impl.ResourceSetImpl;
 import org.eclipse.emf.ecore.util.EcoreUtil;
 import org.eclipse.emf.ecore.xmi.XMLResource;
@@ -145,25 +146,64 @@ public abstract class EmfModelManager {
      *            path to the requested resource
      */
     public void load(File path) throws IOException {
-        getResource(path);
-        Map<String, Boolean> options = new HashMap<String, Boolean>();
-
-        options.put(XMLResource.OPTION_DECLARE_XML, Boolean.TRUE);
-        resource.load(options);
+        if (resource == null) {
+            ResourceSet resSet = getResourceSet();
+            resource = resSet.createResource(URI.createFileURI(path.toString()));
+        }
+        loadResource();
     }
 
     /**
      * Loads the content of the model from the file.
-     * 
+     *
      * @param path
      *            path to the requested resource
      */
     public void load(IPath path) throws IOException {
-        getResource(path);
-        Map<String, Boolean> options = new HashMap<String, Boolean>();
+        if (resource == null) {
+            ResourceSet resSet = getResourceSet();
+            resource = resSet.createResource(URI.createPlatformResourceURI(path.toString(), true));
+        }
+        loadResource();
+    }
 
-        options.put(XMLResource.OPTION_DECLARE_XML, Boolean.TRUE);
-        resource.load(options);
+    /**
+     * Parses {@link #resource} with the options a URN model needs.
+     *
+     * A .jucm file is one big XMI document whose cross references are same-document IDREFs
+     * (<code>variable="1174"</code>, <code>startPoint="2"</code>, ...). Out of the box EMF
+     * resolves each of those through {@link org.eclipse.emf.ecore.resource.impl.ResourceImpl#getEObjectByID(String)},
+     * which walks the entire containment tree once per reference whenever the id is not
+     * already cached -- and nothing populates that cache while parsing. On generated models
+     * with tens of thousands of references that is quadratic and dominates the open time
+     * (a 3.7 MB / 31k-object file took 86 s to parse).
+     *
+     * Two options together make it linear:
+     * <ul>
+     * <li>an explicit intrinsic id -&gt; EObject map, so a lookup is a hash hit instead of a tree walk;</li>
+     * <li>OPTION_DEFER_IDREF_RESOLUTION, so references are resolved after the parse, when
+     * every target already exists -- forward references (jUCMNav writes the scenarios before
+     * the variables they point at) would otherwise miss the map and walk the tree anyway.</li>
+     * </ul>
+     */
+    private void loadResource() throws IOException {
+        Map<Object, Object> options = new HashMap<Object, Object>();
+        options.put(XMLResource.OPTION_DEFER_IDREF_RESOLUTION, Boolean.TRUE);
+
+        ResourceImpl impl = (resource instanceof ResourceImpl) ? (ResourceImpl) resource : null;
+        boolean installedIDMap = impl != null && impl.getIntrinsicIDToEObjectMap() == null;
+        if (installedIDMap)
+            impl.setIntrinsicIDToEObjectMap(new HashMap<String, EObject>());
+
+        try {
+            resource.load(options);
+        } finally {
+            // Drop the lookup map again. Nothing reads it once the model is in memory, and
+            // leaving it behind would let it go stale as soon as URNNamingHelper renumbers a
+            // conflicting id.
+            if (installedIDMap)
+                impl.setIntrinsicIDToEObjectMap(null);
+        }
     }
 
     /**
