@@ -43,10 +43,13 @@ permissions:
   pages: write
   id-token: write
 
-# Don't run overlapping Pages deployments.
-concurrency:
-  group: pages
-  cancel-in-progress: false
+# NOTE: the `pages` concurrency group is declared on the deploy job, NOT here.
+# At workflow level it applied to every run -- PRs, modernization pushes, tag
+# pushes, release rebuilds -- even though only master ever deploys. Since GitHub
+# keeps just the newest *pending* run in a group, an unrelated run queueing
+# behind a master build silently cancelled it, taking the deploy with it. That
+# cost the v10.0.5 release its Pages deploy twice. Scope the group to the job
+# that actually needs serializing.
 
 jobs:
   build:
@@ -166,6 +169,11 @@ jobs:
     needs: build
     if: github.event_name != 'release' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
+    # Don't run overlapping Pages deployments. Only this job contends, so a
+    # build on any other ref can no longer supersede a master run.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
