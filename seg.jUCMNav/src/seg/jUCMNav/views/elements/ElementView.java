@@ -34,6 +34,7 @@ import org.eclipse.ui.views.properties.PropertySheetPage;
 import seg.jUCMNav.Messages;
 import seg.jUCMNav.editors.IPageChangeListener;
 import seg.jUCMNav.editors.UCMNavMultiPageEditor;
+import seg.jUCMNav.model.util.URNNamingHelper;
 import ucm.map.RespRef;
 import urncore.IURNDiagram;
 import urncore.IURNNode;
@@ -117,7 +118,10 @@ public class ElementView extends ViewPart implements IPartListener2, ISelectionC
             if (toReturn == null)
                 return ""; //$NON-NLS-1$
             else
-                return toReturn;
+                // Names may span several lines; a table cell renders only the first one, which
+                // hides the part that tells same-prefix elements apart. Same treatment the
+                // outline trees get.
+                return URNNamingHelper.getSingleLineName(toReturn);
         }
 
         public Image getColumnImage(Object obj, int index) {

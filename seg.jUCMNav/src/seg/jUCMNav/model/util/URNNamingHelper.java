@@ -1010,8 +1010,31 @@ public class URNNamingHelper {
         
     }
     /**
+     * Folds a name onto a single line, for widgets that only render one.
+     *
+     * Names may legitimately contain line breaks -- responsibilities and stubs routinely do --
+     * but a tree item or table cell renders only up to the first one. Two responsibilities whose
+     * names start with the same line then look identical in the outline, which is exactly when
+     * telling them apart matters. Replacing each break with a space keeps the whole name visible
+     * on the one line the widget gives us.
+     *
+     * Only whitespace runs that contain a line break are collapsed; ordinary spacing inside a
+     * line is left alone, so a name is never altered beyond what the widget could not show.
+     *
+     * @param name
+     *            the name to fold; may be null
+     * @return the name on one line, or the argument unchanged if it already was
+     */
+    public static String getSingleLineName(String name) {
+        if (name == null || (name.indexOf('\n') < 0 && name.indexOf('\r') < 0))
+            return name;
+
+        return name.replaceAll("[ \\t]*[\\r\\n]+[ \\t]*", " ").trim(); //$NON-NLS-1$ //$NON-NLS-2$
+    }
+
+    /**
      * Returns the name of the definition if this is a reference, and its direct name otherwise.
-     * 
+     *
      * @param elem
      *            the element for which we want the name.
      * @return the name

@@ -5,6 +5,7 @@ import org.eclipse.jface.viewers.ILabelProviderListener;
 import org.eclipse.swt.graphics.Image;
 
 import seg.jUCMNav.JUCMNavPlugin;
+import seg.jUCMNav.model.util.URNNamingHelper;
 import ucm.map.InBinding;
 import ucm.map.OutBinding;
 import ucm.map.PluginBinding;
@@ -41,15 +42,17 @@ public class PluginLabelProvider implements ILabelProvider {
      * @see org.eclipse.jface.viewers.ILabelProvider#getText(java.lang.Object)
      */
     public String getText(Object element) {
+        // Stub names may span several lines and this list only renders one; fold them the same
+        // way the outline trees do so stubs sharing a first line stay distinguishable.
         if (element instanceof PluginBinding)
-            return ((PluginBinding) element).getPlugin().getName();
+            return URNNamingHelper.getSingleLineName(((PluginBinding) element).getPlugin().getName());
         else if (element instanceof OutBinding)
-            return ((UCMmap) ((OutBinding) element).getBinding().getStub().getDiagram()).getName()
-                    + ": " + ((OutBinding) element).getBinding().getStub().getName(); //$NON-NLS-1$
+            return URNNamingHelper.getSingleLineName(((UCMmap) ((OutBinding) element).getBinding().getStub().getDiagram()).getName()
+                    + ": " + ((OutBinding) element).getBinding().getStub().getName()); //$NON-NLS-1$
         else
             // inbinding
-            return ((UCMmap) ((InBinding) element).getBinding().getStub().getDiagram()).getName()
-                    + ": " + ((InBinding) element).getBinding().getStub().getName(); //$NON-NLS-1$
+            return URNNamingHelper.getSingleLineName(((UCMmap) ((InBinding) element).getBinding().getStub().getDiagram()).getName()
+                    + ": " + ((InBinding) element).getBinding().getStub().getName()); //$NON-NLS-1$
 
     }
 
