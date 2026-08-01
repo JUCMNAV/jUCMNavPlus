@@ -45,6 +45,9 @@ public class FmdPaletteRoot extends GrlPaletteRoot {
         ToolEntry tool = new SelectionToolEntry();
         controls.add(tool);
         setDefaultEntry(tool);
+        // See UcmPaletteRoot: "0" returns to the selection tool (legacy bug 884). Kept the
+        // same key across all three palettes so the shortcut does not change per diagram type.
+        keyboardMapping.put("0", tool); //$NON-NLS-1$
 
         ToolEntry entry = new URNElementCreationEntry(
                 "Comment", Messages.getString("FmdPaletteRoot.CreateAComment"), Comment.class, new ModelCreationFactory(getURNspec(), Comment.class), JUCMNavPlugin.getImageDescriptor("icons/Comment16.gif"), ImageDescriptor.createFromFile( //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$

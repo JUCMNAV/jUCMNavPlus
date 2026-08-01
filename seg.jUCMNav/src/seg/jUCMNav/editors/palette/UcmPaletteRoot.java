@@ -104,6 +104,13 @@ public class UcmPaletteRoot extends PaletteRoot implements Disposable {
         ToolEntry tool = new SelectionToolEntry();
         controls.add(tool);
         setDefaultEntry(tool);
+        // Every other tool below gets a keyboard mapping; the selection tool had none, so
+        // once you picked any creation tool there was no key that took you back to it --
+        // setDefaultEntry() only decides what is active when the palette is built (legacy
+        // bug 884). "0" because it is free in all three palettes: this one already uses
+        // 1-4 for the aspect markers, and h/n/x/z are reserved by
+        // UrnEditor.keybindingExcludes.
+        keyboardMapping.put("0", tool); //$NON-NLS-1$
 
         ToolEntry entry;
 
