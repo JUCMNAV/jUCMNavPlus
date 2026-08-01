@@ -71,7 +71,14 @@ public class jUCMNavType {
         if (!s.startsWith(ENUMERATION)) {
             throw new IllegalArgumentException(Messages.getString("jUCMNavType.InvalidTypeSpecified")); //$NON-NLS-1$
         }
-        getEnumerationList().add(s);
+        // The list is used as a set: equals() unifies through retainAll() and
+        // isPotentiallyAnEnumeration() only checks emptiness, so a repeat add carries no
+        // meaning. It is not harmless, though -- UcmEnvironment.checkVariableExists() re-adds
+        // to the type it just looked up in its declarations map, so evaluating an expression
+        // that mentions an enumeration value grows that shared list by one entry every single
+        // time, and equals() copies the whole list on each comparison.
+        if (!getEnumerationList().contains(s))
+            getEnumerationList().add(s);
     }
 
     /**
