@@ -16,6 +16,8 @@ import org.eclipse.gef.commands.CommandStack;
 import org.eclipse.gef.ui.parts.TreeViewer;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.events.MenuAdapter;
+import org.eclipse.swt.events.MenuEvent;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Menu;
@@ -108,7 +110,8 @@ public class EditURNLink {
     		urnspec = this.getURNspec( selectedElementParent );
     	
     	Shell shell = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getShell();
-    	Menu menu = new Menu(shell, SWT.POP_UP);
+    	final Menu menu = new Menu(shell, SWT.POP_UP);
+    	disposeWhenDismissed(menu);
 
     	MenuItem item = new MenuItem(menu, SWT.PUSH);
 
@@ -352,6 +355,40 @@ public class EditURNLink {
     		}
     	}
     	menu.setVisible(true);
+    }
+
+    /**
+     * Disposes a pop-up menu once the user has dismissed it.
+     *
+     * The menu is parented to the workbench Shell, which lives for the whole session, so
+     * nothing reclaims it when it closes -- and this method builds a fresh one on every
+     * invocation. Each one leaked a Menu plus its items and its per-link cascade menus, all
+     * holding OS handles until the window was closed.
+     *
+     * The disposal is deferred by one event-loop turn rather than done in menuHidden: the
+     * selected item's SWT.Selection event is delivered after the menu hides, and disposing
+     * the menu first would swallow it. Disposing the top-level menu is enough for the
+     * cascades too -- MenuItem.releaseChildren() releases the menu attached to each item.
+     *
+     * Deliberately NOT disposed right after setVisible(true): that call only queues the
+     * pop-up (Display.runPopups shows it on the next readAndDispatch), so disposing there
+     * would destroy the menu before, or while, Windows is tracking it -- the crash fixed in
+     * SubmenuAction.
+     *
+     * @param menu
+     *            the pop-up menu to reclaim after it closes
+     */
+    private void disposeWhenDismissed(final Menu menu) {
+        menu.addMenuListener(new MenuAdapter() {
+            public void menuHidden(MenuEvent e) {
+                e.display.asyncExec(new Runnable() {
+                    public void run() {
+                        if (!menu.isDisposed())
+                            menu.dispose();
+                    }
+                });
+            }
+        });
     }
 	
 	private String className( URNmodelElement element )

@@ -6,6 +6,8 @@ import org.eclipse.emf.common.util.EList;
 import org.eclipse.gef.commands.Command;
 import org.eclipse.gef.commands.CommandStack;
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.events.MenuAdapter;
+import org.eclipse.swt.events.MenuEvent;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
 import org.eclipse.swt.widgets.Menu;
@@ -80,7 +82,8 @@ public class TagURNElements {
 		}
 		
     	Shell shell = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getShell();
-    	Menu menu = new Menu(shell, SWT.POP_UP);
+    	final Menu menu = new Menu(shell, SWT.POP_UP);
+    	disposeWhenDismissed(menu);
 
     	MenuItem item = new MenuItem(menu, SWT.PUSH);
     	item.setText(Messages.getString("TagURNElements.TagElementQuote") + parentElement.getName() + Messages.getString("TagURNElements.TagElementEndQuote")); //$NON-NLS-1$ //$NON-NLS-2$
@@ -114,7 +117,40 @@ public class TagURNElements {
 
     	menu.setVisible(true);
 	}
-	
+
+    /**
+     * Disposes a pop-up menu once the user has dismissed it.
+     *
+     * The menu is parented to the workbench Shell, which lives for the whole session, so
+     * nothing reclaims it when it closes -- and a fresh TagURNElements, and a fresh menu, is
+     * built every time the action runs. Each one leaked a Menu and its items, holding OS
+     * handles until the window was closed.
+     *
+     * The disposal is deferred by one event-loop turn rather than done in menuHidden: the
+     * selected item's SWT.Selection event is delivered after the menu hides, and disposing
+     * the menu first would swallow it.
+     *
+     * Deliberately NOT disposed right after setVisible(true): that call only queues the
+     * pop-up (Display.runPopups shows it on the next readAndDispatch), so disposing there
+     * would destroy the menu before, or while, Windows is tracking it -- the crash fixed in
+     * SubmenuAction.
+     *
+     * @param menu
+     *            the pop-up menu to reclaim after it closes
+     */
+    private void disposeWhenDismissed(final Menu menu) {
+        menu.addMenuListener(new MenuAdapter() {
+            public void menuHidden(MenuEvent e) {
+                e.display.asyncExec(new Runnable() {
+                    public void run() {
+                        if (!menu.isDisposed())
+                            menu.dispose();
+                    }
+                });
+            }
+        });
+    }
+
 	private String getTagClassName( String value ) {
 		return( value.substring( value.lastIndexOf(',')+1 ));
 	}
