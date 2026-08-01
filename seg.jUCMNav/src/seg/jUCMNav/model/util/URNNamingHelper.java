@@ -948,8 +948,15 @@ public class URNNamingHelper {
         if (elem instanceof IURNContainerRef || elem instanceof RespRef || elem instanceof Responsibility || elem instanceof IntentionalElementRef
                 || elem instanceof IntentionalElement || elem instanceof KPIInformationElementRef || elem instanceof KPIInformationElement
                 || elem instanceof IURNContainer) {
-            if (name.trim().length() == 0) {
-                message = Messages.getString("URNNamingHelper.invalidName"); //$NON-NLS-1$
+            if (name.length() == 0) {
+                // Return immediately rather than falling through to the uniqueness checks.
+                // Every does...NameExists() helper below ends with
+                //     return proposedName.length() == 0;
+                // i.e. a blank name is reported as already taken. Continuing would overwrite
+                // this message with "that name already exists", which is what the user saw
+                // when they cleared a name instead of being told the name is missing
+                // (legacy bug 925).
+                return Messages.getString("URNNamingHelper.invalidName"); //$NON-NLS-1$
             }
         }
         if (!getName(elem).equals(name)) /* bug 787 made this case-insensitive - partially */ {
