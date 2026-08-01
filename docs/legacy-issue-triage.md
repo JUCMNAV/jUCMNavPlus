@@ -1,42 +1,52 @@
 ﻿# Legacy issue triage (open issues on `JUCMNAV/projetseg-update`)
 
-Snapshot of 107 open issues at the time of repo transfer (damyot/jUCMNavPlus -> JUCMNAV/jUCMNavPlus).
+Snapshot of 94 open issues, taken 2026-08-01.
 Source: <https://github.com/JUCMNAV/projetseg-update/issues?q=is%3Aissue+is%3Aopen>
+
+> Regenerate with `triage.ps1`, which reads `legacy-issues-raw.json`. Refresh that dump first --
+> the script does not fetch it:
+>
+> ```
+> gh api "repos/JUCMNAV/projetseg-update/issues?state=open&per_page=100" --paginate \
+>   --jq '.[] | select(.pull_request == null)'
+> ```
+>
+> A stale dump reads as a live backlog and wastes triage time on issues that are already closed.
 
 ## Triage summary
 
-- Total open: **107**
-- Flagged as possibly already fixed by `modernization`: **3** (need verification before opening fresh issues)
+- Total open: **94**
+- Flagged as possibly already fixed by `modernization`: **1** (need verification before opening fresh issues)
 
 ### By area
 
 | Area | Open |
 |---|---|
-| GRL/KPI | 30 |
-| Other / uncategorized | 17 |
-| UCM stubs / bindings | 12 |
-| Scenarios | 12 |
+| GRL/KPI | 27 |
+| Other / uncategorized | 15 |
+| Scenarios | 11 |
+| UCM stubs / bindings | 10 |
 | UI / actions / palette | 6 |
-| MSC scenario viewer | 4 |
-| Views / properties | 4 |
 | Import / export (Z.151/TDL) | 4 |
+| MSC scenario viewer | 3 |
 | Rendering / GEF | 3 |
-| Save / load / persistence | 3 |
+| Views / properties | 3 |
 | Concerns / AoURN | 3 |
-| Metadata / stereotypes | 3 |
+| Save / load / persistence | 2 |
 | PDF/RTF reports | 2 |
 | Docs | 2 |
 | Clipboard / copy | 1 |
 | Feature model | 1 |
+| Metadata / stereotypes | 1 |
 
 ### By disposition (heuristic)
 
 | Disposition | Open |
 |---|---|
-| Needs review | 81 |
-| Bug - needs repro | 11 |
-| Enhancement (defer) | 11 |
-| Question / docs | 4 |
+| Needs review | 77 |
+| Enhancement (defer) | 9 |
+| Bug - needs repro | 5 |
+| Question / docs | 3 |
 
 ## "Possibly fixed by modernization" - verify first
 
@@ -44,9 +54,7 @@ These issues match keywords from areas the modernization branch already touched.
 
 | # | Area | Title | Likely fixed by | Created |
 |---|---|---|---|---|
-| [#845](https://github.com/JUCMNAV/projetseg-update/issues/845) | GRL/KPI | Save Failed (Bugzilla Bug 845) | doSaveAs disposed-site error | 2021-08-03 |
 | [#629](https://github.com/JUCMNAV/projetseg-update/issues/629) | MSC scenario viewer | MSC of start point with condition created incorrectly (Bugzilla Bug 629) | MSC viewer font / paint crash | 2021-08-03 |
-| [#545](https://github.com/JUCMNAV/projetseg-update/issues/545) | MSC scenario viewer | Image export in MSC Viewer (Bugzilla Bug 545) | MSC viewer font / paint crash | 2021-08-03 |
 
 ## Full list by area
 
@@ -77,18 +85,16 @@ These issues match keywords from areas the modernization branch already touched.
 |---|---|---|---|
 | [#935](https://github.com/JUCMNAV/projetseg-update/issues/935) | Needs review | Double click toggle of mandatory/optional link on feature diagram (Bugzilla Bug 935) | 2021-08-03 |
 
-### GRL/KPI (30)
+### GRL/KPI (27)
 
 | # | Disposition | Title | Created |
 |---|---|---|---|
 | [#939](https://github.com/JUCMNAV/projetseg-update/issues/939) | Needs review | Feature Models should be supported in reports (Bugzilla Bug 939) | 2021-08-03 |
 | [#934](https://github.com/JUCMNAV/projetseg-update/issues/934) | Needs review | Show non-leaf diagrams in separate diagram creates GRL and not Feature children (Bugzilla Bug 934) | 2021-08-03 |
 | [#931](https://github.com/JUCMNAV/projetseg-update/issues/931) | Needs review | URN needs Agents,Roles and Positions in GRL (Bugzilla Bug 931) | 2021-08-03 |
-| [#928](https://github.com/JUCMNAV/projetseg-update/issues/928) | Needs review | GRL editor problems with focus (Bugzilla Bug 928) | 2021-08-03 |
 | [#920](https://github.com/JUCMNAV/projetseg-update/issues/920) | Needs review | ShowLinkedElementCommand does not support Beliefs in GRL (Bugzilla Bug 920) | 2021-08-03 |
 | [#909](https://github.com/JUCMNAV/projetseg-update/issues/909) | Needs review | problem with dependency evaluation (Bugzilla Bug 909) | 2021-08-03 |
 | [#908](https://github.com/JUCMNAV/projetseg-update/issues/908) | Needs review | Trends depend on order of strategies (Bugzilla Bug 908) | 2021-08-03 |
-| [#906](https://github.com/JUCMNAV/projetseg-update/issues/906) | Bug - needs repro | jUCMNav crashes with multiple URN files open (Bugzilla Bug 906) | 2021-08-03 |
 | [#873](https://github.com/JUCMNAV/projetseg-update/issues/873) | Needs review | Refactor EvaluationStrategyManager (Bugzilla Bug 873) | 2021-08-03 |
 | [#869](https://github.com/JUCMNAV/projetseg-update/issues/869) | Enhancement (defer) | Paste at the cursor (GRL) (Bugzilla Bug 869) | 2021-08-03 |
 | [#867](https://github.com/JUCMNAV/projetseg-update/issues/867) | Needs review | Outline pane sorting after changing type (Bugzilla Bug 867) | 2021-08-03 |
@@ -100,7 +106,6 @@ These issues match keywords from areas the modernization branch already touched.
 | [#859](https://github.com/JUCMNAV/projetseg-update/issues/859) | Needs review | Copying and Pasting Changes the coordinates of labels  (Bugzilla Bug 859) | 2021-08-03 |
 | [#858](https://github.com/JUCMNAV/projetseg-update/issues/858) | Needs review | GRL quantitative algorithms (family) should support "exceeds" and new KPI conversions (Bugzilla Bug 858) | 2021-08-03 |
 | [#848](https://github.com/JUCMNAV/projetseg-update/issues/848) | Needs review | Elimination of delay between clicking on an Item and its selection (Bugzilla Bug 848) | 2021-08-03 |
-| [#845](https://github.com/JUCMNAV/projetseg-update/issues/845) | Bug - needs repro [?] | Save Failed (Bugzilla Bug 845) | 2021-08-03 |
 | [#841](https://github.com/JUCMNAV/projetseg-update/issues/841) | Needs review | Selecting Items on a large graph at low view scale (Bugzilla Bug 841) | 2021-08-03 |
 | [#828](https://github.com/JUCMNAV/projetseg-update/issues/828) | Needs review | Support (or prevent) the 0..100 scale in the Constraint-based GRL algorithm (Bugzilla Bug 828) | 2021-08-03 |
 | [#827](https://github.com/JUCMNAV/projetseg-update/issues/827) | Needs review | Support (or prevent) the 0..100 scale in the Qualitative GRL algorithm (Bugzilla Bug 827) | 2021-08-03 |
@@ -121,29 +126,25 @@ These issues match keywords from areas the modernization branch already touched.
 | [#669](https://github.com/JUCMNAV/projetseg-update/issues/669) | Needs review | UCM ComponentType should be supported (Bugzilla Bug 669) | 2021-08-03 |
 | [#422](https://github.com/JUCMNAV/projetseg-update/issues/422) | Needs review | ExportDXL: CompRefs have no descriptions, while they should include that of their respective definitions (Bugzilla Bug 422) | 2021-08-03 |
 
-### Metadata / stereotypes (3)
+### Metadata / stereotypes (1)
 
 | # | Disposition | Title | Created |
 |---|---|---|---|
-| [#933](https://github.com/JUCMNAV/projetseg-update/issues/933) | Bug - needs repro | Exceptions raised on features when advanced tab selected (Bugzilla Bug 933) | 2021-08-03 |
-| [#930](https://github.com/JUCMNAV/projetseg-update/issues/930) | Bug - needs repro | Unhandled exception and exit (Bugzilla Bug 930) | 2021-08-03 |
 | [#645](https://github.com/JUCMNAV/projetseg-update/issues/645) | Question / docs | Link online documentation and Eclipse "?" icon (Bugzilla Bug 645) | 2021-08-03 |
 
-### MSC scenario viewer (4)
+### MSC scenario viewer (3)
 
 | # | Disposition | Title | Created |
 |---|---|---|---|
 | [#900](https://github.com/JUCMNAV/projetseg-update/issues/900) | Bug - needs repro | MSC viewer can't open files that are linked in an Eclipse folder (Bugzilla Bug 900) | 2021-08-03 |
 | [#629](https://github.com/JUCMNAV/projetseg-update/issues/629) | Needs review [?] | MSC of start point with condition created incorrectly (Bugzilla Bug 629) | 2021-08-03 |
 | [#547](https://github.com/JUCMNAV/projetseg-update/issues/547) | Needs review | scenarios: limitation with triggering paths (Bugzilla Bug 547) | 2021-08-03 |
-| [#545](https://github.com/JUCMNAV/projetseg-update/issues/545) | Enhancement (defer) [?] | Image export in MSC Viewer (Bugzilla Bug 545) | 2021-08-03 |
 
-### Other / uncategorized (17)
+### Other / uncategorized (15)
 
 | # | Disposition | Title | Created |
 |---|---|---|---|
 | [#938](https://github.com/JUCMNAV/projetseg-update/issues/938) | Needs review | "Show Bound Intentional Elements" does not work (Bugzilla Bug 938) | 2021-08-03 |
-| [#925](https://github.com/JUCMNAV/projetseg-update/issues/925) | Needs review |  Incorrect warning message pops up when naming a Responsibility item with null (Bugzilla Bug 925) | 2021-08-03 |
 | [#921](https://github.com/JUCMNAV/projetseg-update/issues/921) | Needs review | Use of OCL requires a Restore Default Settings after installing jUCMNav (Bugzilla Bug 921) | 2021-08-03 |
 | [#917](https://github.com/JUCMNAV/projetseg-update/issues/917) | Needs review | Support merge function to merger two feature model diagram,. Basicly merger two tasks with their children (Bugzilla Bug 917) | 2021-08-03 |
 | [#913](https://github.com/JUCMNAV/projetseg-update/issues/913) | Needs review | Advanced Mode in jUCMNav for Feature Modeling (Bugzilla Bug 913) | 2021-08-03 |
@@ -153,7 +154,6 @@ These issues match keywords from areas the modernization branch already touched.
 | [#847](https://github.com/JUCMNAV/projetseg-update/issues/847) | Needs review | Moving elements with labels (UCM) (Bugzilla Bug 847) | 2021-08-03 |
 | [#766](https://github.com/JUCMNAV/projetseg-update/issues/766) | Needs review | comment should be linked to individual element, not diagram (Bugzilla Bug 766) | 2021-08-03 |
 | [#734](https://github.com/JUCMNAV/projetseg-update/issues/734) | Needs review | User should be able to set the default contribution level as a preference (Bugzilla Bug 734) | 2021-08-03 |
-| [#656](https://github.com/JUCMNAV/projetseg-update/issues/656) | Needs review | Java code still 1.4 compliant. Move to 1.5 or 1.6 (Bugzilla Bug 656) | 2021-08-03 |
 | [#635](https://github.com/JUCMNAV/projetseg-update/issues/635) | Needs review | MacOS refresh problem while drawing/moving components (Bugzilla Bug 635) | 2021-08-03 |
 | [#517](https://github.com/JUCMNAV/projetseg-update/issues/517) | Needs review | refactor: DelegatingCommandStack executer/redo/undo (Bugzilla Bug 517) | 2021-08-03 |
 | [#367](https://github.com/JUCMNAV/projetseg-update/issues/367) | Needs review | refactor: query infrastructure (Bugzilla Bug 367) | 2021-08-03 |
@@ -175,21 +175,19 @@ These issues match keywords from areas the modernization branch already touched.
 | [#374](https://github.com/JUCMNAV/projetseg-update/issues/374) | Needs review | refactor & improve: CutPathCommand (Bugzilla Bug 374) | 2021-08-03 |
 | [#265](https://github.com/JUCMNAV/projetseg-update/issues/265) | Enhancement (defer) | add/delete map command stack management (Bugzilla Bug 265) | 2021-08-03 |
 
-### Save / load / persistence (3)
+### Save / load / persistence (2)
 
 | # | Disposition | Title | Created |
 |---|---|---|---|
-| [#926](https://github.com/JUCMNAV/projetseg-update/issues/926) | Bug - needs repro | "Save failed Widget is disposed" (Bugzilla Bug 926) | 2021-08-03 |
 | [#750](https://github.com/JUCMNAV/projetseg-update/issues/750) | Needs review | Handle new concern relationships in Z.151 export/import (Bugzilla Bug 750) | 2021-08-03 |
 | [#634](https://github.com/JUCMNAV/projetseg-update/issues/634) | Needs review | Autolayout problems on MacOS (Bugzilla Bug 634) | 2021-08-03 |
 
-### Scenarios (12)
+### Scenarios (11)
 
 | # | Disposition | Title | Created |
 |---|---|---|---|
 | [#940](https://github.com/JUCMNAV/projetseg-update/issues/940) | Needs review | GRL strategies: initialization problems when included strategies are expanded (Bugzilla Bug 940) | 2021-08-03 |
 | [#927](https://github.com/JUCMNAV/projetseg-update/issues/927) | Needs review | UCM execution path not "lighting up" (Bugzilla Bug 927) | 2021-08-03 |
-| [#899](https://github.com/JUCMNAV/projetseg-update/issues/899) | Enhancement (defer) | Invalid thread access error (Bugzilla Bug 899) | 2021-08-03 |
 | [#852](https://github.com/JUCMNAV/projetseg-update/issues/852) | Needs review | Support the integration of jUCMNav with Cognos 10 (Bugzilla Bug 852) | 2021-08-03 |
 | [#824](https://github.com/JUCMNAV/projetseg-update/issues/824) | Needs review | export overwrites existing file without warning (Bugzilla Bug 824) | 2021-08-03 |
 | [#672](https://github.com/JUCMNAV/projetseg-update/issues/672) | Needs review | UCM waiting kinds should be supported for waiting places and timers (Bugzilla Bug 672) | 2021-08-03 |
@@ -200,12 +198,10 @@ These issues match keywords from areas the modernization branch already touched.
 | [#493](https://github.com/JUCMNAV/projetseg-update/issues/493) | Needs review | scenarios: plugin selection window refinement (Bugzilla Bug 493) | 2021-08-03 |
 | [#487](https://github.com/JUCMNAV/projetseg-update/issues/487) | Enhancement (defer) | scenarios: add intellisense in code-editor (Bugzilla Bug 487) | 2021-08-03 |
 
-### UCM stubs / bindings (12)
+### UCM stubs / bindings (10)
 
 | # | Disposition | Title | Created |
 |---|---|---|---|
-| [#943](https://github.com/JUCMNAV/projetseg-update/issues/943) | Question / docs | Z.151 import/export Missing Classes | 2021-08-13 |
-| [#937](https://github.com/JUCMNAV/projetseg-update/issues/937) | Bug - needs repro | when we close Tasks window, ViewPart is still active. (Bugzilla Bug 937) | 2021-08-03 |
 | [#924](https://github.com/JUCMNAV/projetseg-update/issues/924) | Needs review | Additional paths are generated when refactor Responsibilities into a stub (Bugzilla Bug 924) | 2021-08-03 |
 | [#923](https://github.com/JUCMNAV/projetseg-update/issues/923) | Needs review | The chart is displayed in disorder when do some "Undo" operations. (Bugzilla Bug 923) | 2021-08-03 |
 | [#880](https://github.com/JUCMNAV/projetseg-update/issues/880) | Needs review | Adding and removing stub plugins (Bugzilla Bug 880) | 2021-08-03 |
@@ -228,12 +224,11 @@ These issues match keywords from areas the modernization branch already touched.
 | [#370](https://github.com/JUCMNAV/projetseg-update/issues/370) | Bug - needs repro | refactor: attempt alternate solution in DevDocConnectionOnBottom (Bugzilla Bug 370) | 2021-08-03 |
 | [#261](https://github.com/JUCMNAV/projetseg-update/issues/261) | Enhancement (defer) | multipage editor / outline:  should be able to open only a subset of all maps. (Bugzilla Bug 261) | 2021-08-03 |
 
-### Views / properties (4)
+### Views / properties (3)
 
 | # | Disposition | Title | Created |
 |---|---|---|---|
 | [#521](https://github.com/JUCMNAV/projetseg-update/issues/521) | Needs review | mac bug: perspective not reset (Bugzilla Bug 521) | 2021-08-03 |
-| [#480](https://github.com/JUCMNAV/projetseg-update/issues/480) | Needs review | platform issues: property sheet problems (Bugzilla Bug 480) | 2021-08-03 |
 | [#376](https://github.com/JUCMNAV/projetseg-update/issues/376) | Needs review | refactor: DevDocProperties (Bugzilla Bug 376) | 2021-08-03 |
 | [#321](https://github.com/JUCMNAV/projetseg-update/issues/321) | Needs review | connects: if change x,y in properties, connected element doesn't work. (Bugzilla Bug 321) | 2021-08-03 |
 
