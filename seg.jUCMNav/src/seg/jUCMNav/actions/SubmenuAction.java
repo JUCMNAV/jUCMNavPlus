@@ -73,10 +73,15 @@ public class SubmenuAction extends Action implements SelectionListener {
             }
 
             public Menu getMenu(Menu parent) {
-                if (getCreatedMenu() != null) {
-                    getCreatedMenu().setEnabled(false);
-                    getCreatedMenu().dispose();
-                }
+                // Do NOT dispose the previously created submenu here. SWT calls this from
+                // inside TrackPopupMenu, while Windows is still tracking the menu that owns
+                // it -- arming the same fly-out twice in one showing then disposes a Menu
+                // that still has SWT's cascade timer registered, and the next WM_TIMER lands
+                // in Menu.wmTimer -> Menu.indexOf -> checkWidget() with
+                // SWTException("Widget is disposed") on the event loop. The submenu is a
+                // child of parent, so SWT frees it when parent goes away; dispose() below
+                // covers the rest. Same fix as ListDefinitionReferencesAction (bug 906),
+                // which this class was modelled on but which was missed when that was fixed.
 
                 // create a submenu
                 Menu menu = new Menu(parent);
@@ -109,7 +114,11 @@ public class SubmenuAction extends Action implements SelectionListener {
             }
 
             public void dispose() {
-                if (getCreatedMenu() != null) {
+                // During the workbench dispose cascade the created Menu can already be gone
+                // (its parent disposed it), and setEnabled(false) on a disposed Menu throws
+                // SWTException("Widget is disposed"). Guard before touching it -- same as
+                // ListDefinitionReferencesAction.
+                if (getCreatedMenu() != null && !getCreatedMenu().isDisposed()) {
                     getCreatedMenu().setEnabled(false);
                     getCreatedMenu().dispose();
                 }
