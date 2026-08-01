@@ -1,12 +1,18 @@
 package seg.jUCMNav.scenarios;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Vector;
 
 import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IMarker;
+import org.eclipse.core.resources.IWorkspace;
+import org.eclipse.core.resources.IWorkspaceRunnable;
+import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
+import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.emf.ecore.EObject;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.part.FileEditorInput;
@@ -242,76 +248,99 @@ public class SyntaxChecker {
      * @param warnings
      *            a vector of {@link TraversalWarning}s to be pushed to the problems view.
      */
-    public static void refreshProblemsView(Vector warnings) {
+    public static void refreshProblemsView(final Vector warnings) {
         org.eclipse.ui.IWorkbenchWindow win = PlatformUI.getWorkbench().getActiveWorkbenchWindow();
         org.eclipse.ui.IWorkbenchPage page = win != null ? win.getActivePage() : null;
         org.eclipse.ui.IEditorPart activeEditor = page != null ? page.getActiveEditor() : null;
         if (activeEditor instanceof UCMNavMultiPageEditor) {
             UCMNavMultiPageEditor editor = (UCMNavMultiPageEditor) activeEditor;
-            IFile resource = ((FileEditorInput) editor.getEditorInput()).getFile();
-            try {
+            final IFile resource = ((FileEditorInput) editor.getEditorInput()).getFile();
 
-                IMarker[] existingMarkers = resource.findMarkers("seg.jUCMNav.traverseproblem", true, 3); //$NON-NLS-1$
-                for (int i = 0; i < existingMarkers.length; i++) {
-                    IMarker marker = existingMarkers[i];
-                    marker.delete();
+            // Every marker call is a workspace operation that broadcasts a resource delta on
+            // its own, and this used to issue one delete per existing marker plus up to eight
+            // setAttribute calls per new one. Running them inside a single IWorkspaceRunnable
+            // collapses that to one delta, which matters on models that produce thousands of
+            // traversal warnings. See also UCMNavMultiPageEditor.dispose(), which clears these
+            // markers the same way.
+            IWorkspaceRunnable batch = new IWorkspaceRunnable() {
+                public void run(IProgressMonitor monitor) throws CoreException {
+                    writeMarkers(resource, warnings);
                 }
+            };
+
+            try {
+                // null rule on purpose: marker changes are exempt from scheduling rules
+                // (IResourceRuleFactory.markerRule() returns null), so this cannot conflict
+                // with a rule an outer operation already holds.
+                ResourcesPlugin.getWorkspace().run(batch, null, IWorkspace.AVOID_UPDATE, null);
             } catch (CoreException ex) {
                 System.out.println(ex);
             }
+        }
+    }
 
-            if (warnings.size() > 0) {
+    /**
+     * Replaces the traversal markers on the file. Must be called inside an
+     * {@link IWorkspaceRunnable}; see {@link #refreshProblemsView(Vector)}.
+     *
+     * @param resource
+     *            the file the markers belong to
+     * @param warnings
+     *            the {@link TraversalWarning}s to publish
+     */
+    private static void writeMarkers(IFile resource, Vector warnings) throws CoreException {
+        // bulk delete; one operation instead of one per existing marker
+        resource.deleteMarkers("seg.jUCMNav.traverseproblem", true, 3); //$NON-NLS-1$
 
-                for (Iterator iter = warnings.iterator(); iter.hasNext();) {
-                    TraversalWarning o = (TraversalWarning) iter.next();
+        for (Iterator iter = warnings.iterator(); iter.hasNext();) {
+            TraversalWarning o = (TraversalWarning) iter.next();
 
-                    try {
-                        IMarker marker = resource.createMarker("seg.jUCMNav.traverseproblem"); //$NON-NLS-1$
-                        marker.setAttribute(IMarker.SEVERITY, o.getSeverity());
-                        marker.setAttribute(IMarker.MESSAGE, o.toString());
-                        if (o.getLocation() instanceof URNmodelElement) {
-                            URNmodelElement elem = (URNmodelElement) o.getLocation();
-                            marker.setAttribute(IMarker.LOCATION, URNNamingHelper.getName(elem));
-                            marker.setAttribute("EObject", ((URNmodelElement) o.getLocation()).getId()); //$NON-NLS-1$
-                        } else if (o.getLocation() != null) {
-                            marker.setAttribute(IMarker.LOCATION, o.getLocation().toString());
-                        }
-
-                        if (o.getCondition() != null && o.getCondition().eContainer() != null) {
-                            if (o.getCondition().eContainer() instanceof StartPoint) {
-                                StartPoint start = (StartPoint) o.getCondition().eContainer();
-                                marker.setAttribute("NodePreCondition", start.getId()); //$NON-NLS-1$
-                            } else if (o.getCondition().eContainer() instanceof EndPoint) {
-                                EndPoint end = (EndPoint) o.getCondition().eContainer();
-                                marker.setAttribute("NodePostCondition", end.getId()); //$NON-NLS-1$
-                            } else if (o.getCondition().eContainer() instanceof NodeConnection) {
-                                NodeConnection ncx = (NodeConnection) o.getCondition().eContainer();
-                                PathNode pn = (PathNode) ncx.getSource();
-                                marker.setAttribute("Condition", pn.getId()); //$NON-NLS-1$
-                                for (int i = 0; i < pn.getSucc().size(); i++) {
-                                    NodeConnection nc = (NodeConnection) pn.getSucc().get(i);
-                                    if (nc.getCondition() == o.getCondition()) {
-                                        marker.setAttribute("ConditionIndex", i); //$NON-NLS-1$
-                                    }
-                                }
-                            } else if (o.getCondition().eContainer() instanceof ScenarioDef) {
-                                ScenarioDef scenario = (ScenarioDef) o.getCondition().eContainer();
-                                marker.setAttribute("Scenario", scenario.getId()); //$NON-NLS-1$
-                                marker.setAttribute("ScenarioPreConditionIndex", scenario.getPreconditions().indexOf(o.getCondition())); //$NON-NLS-1$
-                                marker.setAttribute("ScenarioPostConditionIndex", scenario.getPostconditions().indexOf(o.getCondition())); //$NON-NLS-1$
-                            }
-                        } else if (o.getLocation() instanceof OrFork || o.getLocation() instanceof WaitingPlace || o.getLocation() instanceof FailurePoint) {
-                            PathNode pn = (PathNode) o.getLocation();
-                            marker.setAttribute("Condition", pn.getId()); //$NON-NLS-1$							
-                        }
-                        resource.findMarkers("seg.jUCMNav.WarningMarker", true, 1); //$NON-NLS-1$
-                    } catch (CoreException ex) {
-                        // System.out.println(ex);
-                    }
-
+            try {
+                // Collect the attributes first and set them in one call: IMarker.setAttribute()
+                // is a workspace operation each time, setAttributes() is a single one.
+                Map<String, Object> attribs = new HashMap<String, Object>();
+                attribs.put(IMarker.SEVERITY, Integer.valueOf(o.getSeverity()));
+                attribs.put(IMarker.MESSAGE, o.toString());
+                if (o.getLocation() instanceof URNmodelElement) {
+                    URNmodelElement elem = (URNmodelElement) o.getLocation();
+                    attribs.put(IMarker.LOCATION, URNNamingHelper.getName(elem));
+                    attribs.put("EObject", ((URNmodelElement) o.getLocation()).getId()); //$NON-NLS-1$
+                } else if (o.getLocation() != null) {
+                    attribs.put(IMarker.LOCATION, o.getLocation().toString());
                 }
-                // throw new TraversalException(b.toString());
 
+                if (o.getCondition() != null && o.getCondition().eContainer() != null) {
+                    if (o.getCondition().eContainer() instanceof StartPoint) {
+                        StartPoint start = (StartPoint) o.getCondition().eContainer();
+                        attribs.put("NodePreCondition", start.getId()); //$NON-NLS-1$
+                    } else if (o.getCondition().eContainer() instanceof EndPoint) {
+                        EndPoint end = (EndPoint) o.getCondition().eContainer();
+                        attribs.put("NodePostCondition", end.getId()); //$NON-NLS-1$
+                    } else if (o.getCondition().eContainer() instanceof NodeConnection) {
+                        NodeConnection ncx = (NodeConnection) o.getCondition().eContainer();
+                        PathNode pn = (PathNode) ncx.getSource();
+                        attribs.put("Condition", pn.getId()); //$NON-NLS-1$
+                        for (int i = 0; i < pn.getSucc().size(); i++) {
+                            NodeConnection nc = (NodeConnection) pn.getSucc().get(i);
+                            if (nc.getCondition() == o.getCondition()) {
+                                attribs.put("ConditionIndex", Integer.valueOf(i)); //$NON-NLS-1$
+                            }
+                        }
+                    } else if (o.getCondition().eContainer() instanceof ScenarioDef) {
+                        ScenarioDef scenario = (ScenarioDef) o.getCondition().eContainer();
+                        attribs.put("Scenario", scenario.getId()); //$NON-NLS-1$
+                        attribs.put("ScenarioPreConditionIndex", Integer.valueOf(scenario.getPreconditions().indexOf(o.getCondition()))); //$NON-NLS-1$
+                        attribs.put("ScenarioPostConditionIndex", Integer.valueOf(scenario.getPostconditions().indexOf(o.getCondition()))); //$NON-NLS-1$
+                    }
+                } else if (o.getLocation() instanceof OrFork || o.getLocation() instanceof WaitingPlace || o.getLocation() instanceof FailurePoint) {
+                    PathNode pn = (PathNode) o.getLocation();
+                    attribs.put("Condition", pn.getId()); //$NON-NLS-1$
+                }
+
+                IMarker marker = resource.createMarker("seg.jUCMNav.traverseproblem"); //$NON-NLS-1$
+                marker.setAttributes(attribs);
+            } catch (CoreException ex) {
+                // System.out.println(ex);
             }
         }
     }

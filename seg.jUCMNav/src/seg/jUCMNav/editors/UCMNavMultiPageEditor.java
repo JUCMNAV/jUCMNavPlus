@@ -276,14 +276,11 @@ public class UCMNavMultiPageEditor extends MultiPageEditorPart implements Adapte
 
 		if (file != null) {
 
-			// clear markers
+			// clear markers. One bulk delete rather than one workspace operation (and one
+			// resource delta) per marker -- running every scenario of a large model can leave
+			// thousands behind.
 			try {
-
-				IMarker[] existingMarkers = file.findMarkers(IMarker.PROBLEM, true, 3);
-				for (int i = 0; i < existingMarkers.length; i++) {
-					IMarker marker = existingMarkers[i];
-					marker.delete();
-				}
+				file.deleteMarkers(IMarker.PROBLEM, true, 3);
 			} catch (CoreException ex) {
 			}
 		}
