@@ -128,7 +128,7 @@ public class EditURNLink {
     	if( selectedElement != null ){
     		// menu item for Start Link from selected diagram element, RespRef, ActorRef, ComponentRef, IntentionalElementRef, and all UCM map elements
     		MenuItem item2 = new MenuItem(menu, SWT.PUSH);
-    		item2.setText( Messages.getString("EditURNLink.StartNewLinkFrom") + this.className( selectedElement ) + " \"" + URNElementFinder.getParentElement( selectedElement ).getName() + "\"" ); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+    		item2.setText( Messages.getString("EditURNLink.StartNewLinkFrom") + this.className( selectedElement ) + " \"" + this.nameOf( selectedElement ) + "\"" ); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 
     		item2.addListener( SWT.Selection, new Listener() {
     			public void handleEvent(Event event) {
@@ -155,7 +155,7 @@ public class EditURNLink {
     		if( selectedElement != null ){
 
     			MenuItem item21 = new MenuItem(menu, SWT.PUSH);
-    			String endText = Messages.getString("EditURNLink.EndNewLinkFrom") + this.className( fromElement ) + " \"" + URNElementFinder.getParentElement( fromElement ).getName()  //$NON-NLS-1$ //$NON-NLS-2$
+    			String endText = Messages.getString("EditURNLink.EndNewLinkFrom") + this.className( fromElement ) + " \"" + this.nameOf( fromElement )  //$NON-NLS-1$ //$NON-NLS-2$
     					+ Messages.getString("EditURNLink.QuoteTo") + this.className( selectedElement ); //$NON-NLS-1$
 
     			if( selectedElement instanceof EvaluationStrategy )
@@ -173,7 +173,7 @@ public class EditURNLink {
     		if( selectedElementParent != null ){
 
     			MenuItem item23 = new MenuItem(menu, SWT.PUSH);
-    			String endText = Messages.getString("EditURNLink.EndNewLinkFrom") + this.className( fromElement ) + " \"" + URNElementFinder.getParentElement( fromElement ).getName() + Messages.getString("EditURNLink.QuoteTo") //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+    			String endText = Messages.getString("EditURNLink.EndNewLinkFrom") + this.className( fromElement ) + " \"" + this.nameOf( fromElement ) + Messages.getString("EditURNLink.QuoteTo") //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
     					+ this.className( selectedElementParent );
     			
     			if( selectedElementParent instanceof StrategiesGroup )
@@ -215,8 +215,8 @@ public class EditURNLink {
     			// add outgoing links from selected diagram element, RespRef, ActorRef, ComponentRef, IntentionalElementRef, and all UCM map elements  
     			for (Iterator it = selectedElement.getFromLinks().iterator(); it.hasNext();) {
     				URNlink link = (URNlink) it.next();
-    				String text = "(" + link.getType() + Messages.getString("EditURNLink.CloseParenthesisTo") + this.className( link.getToElem() )+ " \"" + URNElementFinder.getParentElement( link.getToElem() ).getName() +  //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-    						Messages.getString("EditURNLink.QuoteFrom") + this.className( selectedElement ) + " \"" + URNElementFinder.getParentElement( selectedElement ).getName() + "\""; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+    				String text = "(" + link.getType() + Messages.getString("EditURNLink.CloseParenthesisTo") + this.className( link.getToElem() )+ " \"" + this.nameOf( link.getToElem() ) +  //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+    						Messages.getString("EditURNLink.QuoteFrom") + this.className( selectedElement ) + " \"" + this.nameOf( selectedElement ) + "\""; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
     				ogLinks[i] = new MenuItem(menu, SWT.CASCADE);
     				ogLinks[i].setText( text );
     				ogLinks[i].setImage(JUCMNavPlugin.getImage("icons/urnlink.gif")); //$NON-NLS-1$
@@ -244,7 +244,7 @@ public class EditURNLink {
     			// if applicable, add outgoing links from parent URN objects Actor, Component, Responsibility, IntentionalElement, ...
     			for (Iterator it = selectedElementParent.getFromLinks().iterator(); it.hasNext();) {
     				URNlink link = (URNlink) it.next();
-    				String text = "(" + link.getType() + Messages.getString("EditURNLink.CloseParenthesisTo") + this.className( link.getToElem() )+ " \"" + URNElementFinder.getParentElement( link.getToElem() ).getName()  //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+    				String text = "(" + link.getType() + Messages.getString("EditURNLink.CloseParenthesisTo") + this.className( link.getToElem() )+ " \"" + this.nameOf( link.getToElem() )  //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
     						+ Messages.getString("EditURNLink.QuoteFrom") + this.className( selectedElementParent ) + " \"" + selectedElementParent.getName() + "\""; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
     				ogLinks[i] = new MenuItem(menu, SWT.CASCADE);
     				ogLinks[i].setText( text );
@@ -297,8 +297,8 @@ public class EditURNLink {
     			// add incoming links to selected diagram element, RespRef, ActorRef, ComponentRef, IntentionalElementRef, and all UCM map elements  
     			for (Iterator it = selectedElement.getToLinks().iterator(); it.hasNext();) {
     				URNlink link = (URNlink) it.next();
-    				String text = "(" + link.getType() + Messages.getString("EditURNLink.CloseParenthesisFrom") + this.className( link.getFromElem() )+ " \"" + URNElementFinder.getParentElement( link.getFromElem() ).getName() //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-    						+ Messages.getString("EditURNLink.QuoteTo") + this.className( selectedElement ) + " \"" + URNElementFinder.getParentElement( selectedElement ).getName() + "\""; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+    				String text = "(" + link.getType() + Messages.getString("EditURNLink.CloseParenthesisFrom") + this.className( link.getFromElem() )+ " \"" + this.nameOf( link.getFromElem() ) //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+    						+ Messages.getString("EditURNLink.QuoteTo") + this.className( selectedElement ) + " \"" + this.nameOf( selectedElement ) + "\""; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
     				icLinks[i] = new MenuItem(menu, SWT.CASCADE);
     				icLinks[i].setText( text );
     				icLinks[i].setImage(JUCMNavPlugin.getImage("icons/urnlink-reversed.gif")); //$NON-NLS-1$
@@ -328,7 +328,7 @@ public class EditURNLink {
     			for (Iterator it = selectedElementParent.getToLinks().iterator(); it.hasNext();) {
     				URNlink link = (URNlink) it.next();
     				String text = "(" + link.getType() + Messages.getString("EditURNLink.CloseParenthesisFrom") + this.className( link.getFromElem() )+ " \"" +  //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-    				URNElementFinder.getParentElement( link.getFromElem() ).getName() + Messages.getString("EditURNLink.QuoteTo") + this.className( selectedElementParent ) + " \"" //$NON-NLS-1$ //$NON-NLS-2$
+    				this.nameOf( link.getFromElem() ) + Messages.getString("EditURNLink.QuoteTo") + this.className( selectedElementParent ) + " \"" //$NON-NLS-1$ //$NON-NLS-2$
     				+ selectedElementParent.getName() + "\""; //$NON-NLS-1$
     				icLinks[i] = new MenuItem(menu, SWT.CASCADE);
     				icLinks[i].setText( text );
@@ -393,10 +393,60 @@ public class EditURNLink {
 	
 	private String className( URNmodelElement element )
 	{
+		if( element == null )
+			return Messages.getString("EditURNLink.DeletedElement"); //$NON-NLS-1$
+
 	    String className = element.getClass().getSimpleName();
 	    return className.substring( 0, className.length()-4 );  // strip suffix 'Impl' from class name
 	}
-	
+
+	/**
+	 * The display name of a link endpoint, tolerating one that no longer resolves.
+	 *
+	 * A URN link keeps pointing at its endpoint after the thing it names has gone. Two ways
+	 * that happens: the endpoint reference itself is cleared, or -- more easily -- the endpoint
+	 * is a *reference* (an IntentionalElementRef, say) whose definition was deleted, in which
+	 * case URNElementFinder.getParentElement() returns null because getDef() does.
+	 *
+	 * Both used to reach .getName() unguarded while the context menu was being built, so one
+	 * stale link threw and the whole "URN Links" menu stopped appearing -- legacy bug 865,
+	 * reported as "if the target of a URN link (e.g. a softgoal) is deleted, the URN link option
+	 * on the context menu for the source stops working". Naming the endpoint as deleted keeps
+	 * the menu usable, and in particular keeps "Delete link" reachable so the stale link can be
+	 * cleaned up.
+	 *
+	 * @param element
+	 *            a link endpoint; may be null or may no longer resolve to a definition
+	 * @return its name, or a placeholder
+	 */
+	private String nameOf( URNmodelElement element )
+	{
+		if( element == null )
+			return Messages.getString("EditURNLink.DeletedElement"); //$NON-NLS-1$
+
+		URNmodelElement parent = URNElementFinder.getParentElement( element );
+		if( parent == null || parent.getName() == null )
+			return Messages.getString("EditURNLink.DeletedElement"); //$NON-NLS-1$
+
+		return parent.getName();
+	}
+
+	/**
+	 * The endpoint's own name, tolerating a null endpoint. Unlike {@link #nameOf}, this does not
+	 * resolve a reference to its definition -- callers that want the definition's name use that.
+	 *
+	 * @param element
+	 *            a link endpoint; may be null
+	 * @return its name, or a placeholder
+	 */
+	private String endpointName( URNmodelElement element )
+	{
+		if( element == null || element.getName() == null )
+			return Messages.getString("EditURNLink.DeletedElement"); //$NON-NLS-1$
+
+		return element.getName();
+	}
+
 	private boolean isNavigable( URNmodelElement endpoint )
 	{
 		Class [] navigableClasses = { IURNNode.class, IURNContainerRef.class, IntentionalElement.class, Actor.class, Component.class, Responsibility.class,
@@ -407,6 +457,9 @@ public class EditURNLink {
 	
 	private boolean includesClass( URNmodelElement element, Class [] classList )
 	{
+		if( element == null )
+			return false; // a dangling endpoint is not navigable
+
 		for( int i = 0; i < classList.length; i++ ) {
 			if( classList[i].isAssignableFrom( element.getClass() ) )
 				return true;
@@ -463,8 +516,8 @@ public class EditURNLink {
         if (toElement != null) {
     		Shell shell = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getShell();
         	String title = Messages.getString("EditURNLink.EnterLinkType"); //$NON-NLS-1$
-        	String message = Messages.getString("EditURNLink.CreatingURNLinkFrom") + this.className( fromElement ) + " \"" + URNElementFinder.getParentElement( fromElement ).getName() + //$NON-NLS-1$ //$NON-NLS-2$
-        			Messages.getString("EditURNLink.QuoteTo") + this.className( toElement ) + " \"" + URNElementFinder.getParentElement( toElement ).getName() //$NON-NLS-1$ //$NON-NLS-2$
+        	String message = Messages.getString("EditURNLink.CreatingURNLinkFrom") + this.className( fromElement ) + " \"" + this.nameOf( fromElement ) + //$NON-NLS-1$ //$NON-NLS-2$
+        			Messages.getString("EditURNLink.QuoteTo") + this.className( toElement ) + " \"" + this.nameOf( toElement ) //$NON-NLS-1$ //$NON-NLS-2$
         			+ Messages.getString("EditURNLink.PleaseEnterLinkType"); //$NON-NLS-1$
 
         	URNlinkTypeSelectionDialog typeInput = new URNlinkTypeSelectionDialog( shell, urnspec, title, message, "", Messages.getString("EditURNLink.CreateNewURNLink"), Messages.getString("EditURNLink.CancelURNLinkCreation") );  //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
@@ -514,8 +567,10 @@ public class EditURNLink {
 		int userChoice = DELETE;
 
 		final String title = Messages.getString("EditURNLink.DeleteURNLink"); //$NON-NLS-1$
-		final String message = Messages.getString("EditURNLink.AreYouSureYouWantToDelete") + selectedLink.getFromElem().getName() //$NON-NLS-1$
-				+ Messages.getString("EditURNLink.QuoteAndQuote") + selectedLink.getToElem().getName() + "\" ?"; //$NON-NLS-1$ //$NON-NLS-2$
+		// endpointName(), not getName(), because this is exactly the dialog a user reaches when
+		// cleaning up a link whose endpoint has been deleted -- see nameOf().
+		final String message = Messages.getString("EditURNLink.AreYouSureYouWantToDelete") + endpointName( selectedLink.getFromElem() ) //$NON-NLS-1$
+				+ Messages.getString("EditURNLink.QuoteAndQuote") + endpointName( selectedLink.getToElem() ) + "\" ?"; //$NON-NLS-1$ //$NON-NLS-2$
 		final String[] labels = { Messages.getString("EditURNLink.Cancel"), Messages.getString("EditURNLink.DeleteLink") }; //$NON-NLS-1$ //$NON-NLS-2$
 
 		Shell shell = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getShell();
