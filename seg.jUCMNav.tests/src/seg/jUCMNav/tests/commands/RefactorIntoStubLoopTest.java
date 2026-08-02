@@ -53,8 +53,10 @@ import urncore.IURNNode;
  * fork-&gt;join branches and with a responsibility on each branch.</li>
  * </ul>
  *
- * So the reported symptom is real (see #29) but is not triggered by this shape, and reproducing
- * it needs the reporter's actual model.
+ * So the reported symptom is real but is not triggered by this shape. It does reproduce on the
+ * reporter's own model -- see {@link ExtractStubFromSampleTest}, where extracting a whole
+ * fork/join block whose branches carry content yields in=3 out=3 against a boundary of 1 and 1.
+ * Thin synthetic branches have no interior severing points, which is why this shape stays clean.
  *
  * <p>
  * <b>The design criticism stands independently.</b> The command never computes a boundary. It
