@@ -146,11 +146,16 @@ public class MultiPageCommandStackListener implements CommandStackListener, Comm
             // is the root cause of issue #6. The DelegatingCommandStack.execute
             // path already flushes on execute, so this is the secondary guard.
             if (!(event.getSource() instanceof DelegatingCommandStack)) {
-                if (detail == CommandStack.POST_EXECUTE)
-                    // Same decision as DelegatingCommandStack.execute() makes: flush unless the
-                    // parked commands provably cannot interact with an edit on this page's
-                    // diagram. Asking here as well as there matters -- an edit reaching a page
-                    // stack directly bypasses the other check entirely.
+                // Same decision as DelegatingCommandStack.execute() makes: flush unless the parked
+                // commands provably cannot interact with an edit on this page's diagram. Asking
+                // here as well as there matters -- an edit reaching a page stack directly bypasses
+                // the other check entirely.
+                //
+                // Guarded on there being anything parked, because diagramEditedBy() walks the
+                // editor's pages and this runs after every single command. Without the guard it
+                // cost ~15% on a command-heavy test class, to answer a question that only matters
+                // in the rare session where a map has been created, deleted or refactored.
+                if (detail == CommandStack.POST_EXECUTE && this.editor.getDelegatingCommandStack().hasParkedGlobalCommands())
                     this.editor.getDelegatingCommandStack().flushURNspecStackUnlessClearOf(diagramEditedBy(event.getSource()));
             }
             else

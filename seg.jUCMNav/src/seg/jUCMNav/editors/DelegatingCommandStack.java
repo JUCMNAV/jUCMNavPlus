@@ -197,6 +197,17 @@ public class DelegatingCommandStack extends CommandStack implements CommandStack
      * ({@link seg.jUCMNav.model.commands.IScopedGlobalCommand}) get that distinction drawn; anything
      * that does not is assumed to affect everything, which is what this always did.
      */
+    /**
+     * Whether anything is parked on the URN-spec stack at all.
+     *
+     * Cheap, and worth asking before working out which diagram an edit belongs to: with nothing
+     * parked there is nothing to flush, and that is the overwhelmingly common case -- every
+     * ordinary edit in a session where no map has been created, deleted or refactored.
+     */
+    public boolean hasParkedGlobalCommands() {
+        return stkUrnSpec.getCommands().length > 0;
+    }
+
     public void flushURNspecStackUnlessClearOf(IURNDiagram edited) {
         if (couldInteractWith(edited))
             flushURNspecStack();

@@ -103,10 +103,43 @@ OSGi framework, and is paid once per invocation — so batch classes into one
 `-Dtest=` rather than running several commands.
 
 Test classes cannot run in parallel: `useUIThread=true` puts everything on
-the workbench's UI thread. The slow classes (`JUCMNavGRLCommandTests` ~57 s,
-`UCMScenarioViewerTests` ~54 s, `JUCMNavCommandTests` ~47 s, `ProgressTests`
-~46 s) genuinely drive the workbench; the pure-model ones are already
-sub-second.
+the workbench's UI thread.
+
+### What each class actually costs
+
+Pick from this rather than guessing — the intuition that "a test that
+checks thousands of cases must be slow" is wrong here, and the reverse is
+usually true. Figures from the 10.0.7 CI run and a local run of the same
+commit; the command-heavy classes were carrying a ~15% regression in that
+run (fixed straight after, see `MultiPageCommandStackListener`), so read
+them as an upper bound:
+
+| Class | CI | local | what makes it cost |
+|---|---|---|---|
+| `JUCMNavCommandTests` | 393 s | 47 s | drives the workbench through every command |
+| `JUCMNavGRLCommandTests` | 206 s | 57 s | same, for GRL |
+| `JUCMNavKPICommandTests` | 139 s | 11 s | same, for KPIs |
+| `ExtractStubFromSampleTest` | 100 s | 8 s | opens an editor **per test method** |
+| `GlobalUndoSurvivesUnrelatedEditTest` | 73 s | 14 s | ditto, plus a second map each time |
+| `RefactorIntoStubUndoTest` | 47 s | 3 s | ditto |
+| `ProgressTests` | 12 s | 46 s | — |
+| `ScenarioTraversalTests` | 7 s | 21 s | — |
+| `ExtractStubScenarioRoundTripTest` | 6 s | 11 s | one editor, reused across 30 traversals |
+| `StubExtractionScopeTest` | **0.18 s** | 0.35 s | 29 tests, one of which sweeps all 2048 subsets of a sample map |
+| `jUCMNavParserTest` | 0.08 s | 0.25 s | 116 tests, pure parsing |
+
+The cost is **opening editors**, not the number of assertions. A class that
+loads a model into a `UCMNavMultiPageEditor` in `@Before` pays for it once
+per test method; one that queries the model directly runs thousands of
+cases for free. `StubExtractionScopeTest` checks 2048 subsets in under a
+fifth of a second because `StubExtractionScope` is a pure query with no
+workbench behind it — write new coverage at that level whenever the thing
+under test allows it, and reserve editor-driven tests for behaviour that
+genuinely needs the workbench.
+
+Note also that CI and local disagree about which classes are slow (compare
+`ProgressTests` with `JUCMNavKPICommandTests`), so profile where you care
+rather than assuming the other environment matches.
 
 **Run the full `mvn -B clean verify` before any push.** The scoped run is
 for the edit loop, not for the gate.
