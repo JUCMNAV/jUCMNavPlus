@@ -5,8 +5,10 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.Vector;
 
 import org.eclipse.core.resources.IFile;
@@ -24,6 +26,7 @@ import org.junit.Test;
 
 import seg.jUCMNav.editors.UCMNavMultiPageEditor;
 import seg.jUCMNav.model.commands.transformations.RefactorIntoStubCommand;
+import seg.jUCMNav.model.util.ParentFinder;
 import seg.jUCMNav.model.util.StubExtractionScope;
 import seg.jUCMNav.scenarios.ScenarioUtils;
 import seg.jUCMNav.views.preferences.DeletePreferences;
@@ -34,6 +37,7 @@ import ucm.map.UCMmap;
 import ucm.scenario.ScenarioDef;
 import ucm.scenario.ScenarioGroup;
 import urn.URNspec;
+import urncore.IURNContainerRef;
 import urncore.IURNDiagram;
 import urncore.URNmodelElement;
 
@@ -163,6 +167,95 @@ public class ExtractStubScenarioRoundTripTest {
         return refs;
     }
 
+    /**
+     * Which component performs each path node, by definition name rather than by reference.
+     *
+     * <p>
+     * A reference is per-map, so an extraction is free to swap one for another -- moving it across
+     * or replicating it on the plug-in map. What it is not free to do is change the answer to
+     * "which component performs this", which is most of what a UCM says. Keyed by definition, that
+     * question survives the refactor and can be asked on both sides of it.
+     */
+    private String componentOfEachNode() {
+        List<String> lines = new ArrayList<String>();
+        for (Iterator it = urn.getUrndef().getSpecDiagrams().iterator(); it.hasNext();) {
+            IURNDiagram d = (IURNDiagram) it.next();
+            if (!(d instanceof UCMmap))
+                continue;
+            for (Iterator n = ((UCMmap) d).getNodes().iterator(); n.hasNext();) {
+                PathNode pn = (PathNode) n.next();
+                if (pn instanceof Stub || createdByTheRefactor.contains(pn))
+                    continue;
+                IURNContainerRef ref = pn.getContRef();
+                String component = ref == null || ref.getContDef() == null ? "(none)" //$NON-NLS-1$
+                        : ((URNmodelElement) ref.getContDef()).getName();
+                lines.add(((URNmodelElement) pn).getId() + " in " + component); //$NON-NLS-1$
+            }
+        }
+        Collections.sort(lines);
+        return lines.toString();
+    }
+
+    /** How many component references each map carries -- an undo that forgets a replica shows here. */
+    private String componentRefsPerMap() {
+        List<String> lines = new ArrayList<String>();
+        for (Iterator it = urn.getUrndef().getSpecDiagrams().iterator(); it.hasNext();) {
+            IURNDiagram d = (IURNDiagram) it.next();
+            if (d instanceof UCMmap)
+                lines.add(((URNmodelElement) d).getName() + "=" + ((UCMmap) d).getContRefs().size()); //$NON-NLS-1$
+        }
+        Collections.sort(lines);
+        return lines.toString();
+    }
+
+    /** Nodes the extraction invented, which have no "before" to be compared against. */
+    private final Set<PathNode> createdByTheRefactor = new HashSet<PathNode>();
+
+    private void rememberNodesCreatedBy(Runnable extraction) {
+        Set<PathNode> was = allNodes();
+        extraction.run();
+        Set<PathNode> now = allNodes();
+        now.removeAll(was);
+        createdByTheRefactor.addAll(now);
+    }
+
+    private Set<PathNode> allNodes() {
+        Set<PathNode> nodes = new HashSet<PathNode>();
+        for (Iterator it = urn.getUrndef().getSpecDiagrams().iterator(); it.hasNext();) {
+            IURNDiagram d = (IURNDiagram) it.next();
+            if (d instanceof UCMmap)
+                for (Iterator n = ((UCMmap) d).getNodes().iterator(); n.hasNext();)
+                    nodes.add((PathNode) n.next());
+        }
+        return nodes;
+    }
+
+    /**
+     * Containment follows geometry throughout this model, on the extracted map as much as the
+     * original: a node sits in the innermost component reference whose bounds contain it, and a
+     * component reference in the innermost one containing its own. The suite asserts this of the
+     * models it builds; it has to hold of the ones the refactor builds too.
+     */
+    private void assertContainmentFollowsGeometry(String what) {
+        for (Iterator it = urn.getUrndef().getSpecDiagrams().iterator(); it.hasNext();) {
+            IURNDiagram d = (IURNDiagram) it.next();
+            if (!(d instanceof UCMmap))
+                continue;
+            UCMmap m = (UCMmap) d;
+
+            for (Iterator c = m.getContRefs().iterator(); c.hasNext();) {
+                IURNContainerRef ref = (IURNContainerRef) c.next();
+                assertEquals(what + ": " + ref + " on " + ((URNmodelElement) m).getName() + " is not properly bound", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                        ParentFinder.getPossibleParent((URNmodelElement) ref), ref.getParent());
+            }
+            for (Iterator n = m.getNodes().iterator(); n.hasNext();) {
+                PathNode pn = (PathNode) n.next();
+                assertEquals(what + ": " + pn + " on " + ((URNmodelElement) m).getName() + " is not properly bound", //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                        ParentFinder.getPossibleParent(pn), pn.getContRef());
+            }
+        }
+    }
+
     private Stub theStub() {
         for (Iterator it = map.getNodes().iterator(); it.hasNext();) {
             Object o = it.next();
@@ -229,6 +322,9 @@ public class ExtractStubScenarioRoundTripTest {
      */
     private void roundTrip(String what, String[] ids) {
         String[] before = runScenarios();
+        final String componentsBefore = componentOfEachNode();
+        final String componentRefsBefore = componentRefsPerMap();
+        assertContainmentFollowsGeometry(what + " (before)"); //$NON-NLS-1$
 
         Vector<Object> selection = new Vector<Object>();
         for (int i = 0; i < ids.length; i++)
@@ -238,9 +334,13 @@ public class ExtractStubScenarioRoundTripTest {
         int expectedIn = scope.getInbound().size() + scope.getOwnStarts().size();
         int expectedOut = scope.getOutbound().size() + scope.getOwnEnds().size();
 
-        Command refactor = new RefactorIntoStubCommand(urn, selection);
+        final Command refactor = new RefactorIntoStubCommand(urn, selection);
         assertTrue(what + ": the refactor should be executable", refactor.canExecute()); //$NON-NLS-1$
-        editor.getDelegatingCommandStack().execute(refactor);
+        rememberNodesCreatedBy(new Runnable() {
+            public void run() {
+                editor.getDelegatingCommandStack().execute(refactor);
+            }
+        });
 
         Stub stub = theStub();
         assertTrue(what + ": the refactor should leave a stub behind", stub != null); //$NON-NLS-1$
@@ -249,6 +349,10 @@ public class ExtractStubScenarioRoundTripTest {
         assertEquals(what + ": stub paths should be the boundary plus the extremities it swallowed", //$NON-NLS-1$
                 "in=" + expectedIn + " out=" + expectedOut, //$NON-NLS-1$ //$NON-NLS-2$
                 "in=" + stub.getPred().size() + " out=" + stub.getSucc().size()); //$NON-NLS-1$ //$NON-NLS-2$
+
+        assertEquals(what + ": every node must still be performed by the same component", //$NON-NLS-1$
+                componentsBefore, componentOfEachNode());
+        assertContainmentFollowsGeometry(what + " (extracted)"); //$NON-NLS-1$
 
         String[] extracted = runScenarios();
         assertEquals(what + ": extracting a stub must not change what the scenarios do\nwarnings before:\n" //$NON-NLS-1$
@@ -259,6 +363,11 @@ public class ExtractStubScenarioRoundTripTest {
         editor.getDelegatingCommandStack().undo();
 
         assertTrue(what + ": undo should have removed the stub", theStub() == null); //$NON-NLS-1$
+        assertEquals(what + ": undo must put every node back in its own component", //$NON-NLS-1$
+                componentsBefore, componentOfEachNode());
+        assertEquals(what + ": undo must leave no replicated component reference behind", //$NON-NLS-1$
+                componentRefsBefore, componentRefsPerMap());
+        assertContainmentFollowsGeometry(what + " (undone)"); //$NON-NLS-1$
 
         String[] restored = runScenarios();
         assertEquals(what + ": undo must restore what the scenarios do", before[0], restored[0]); //$NON-NLS-1$

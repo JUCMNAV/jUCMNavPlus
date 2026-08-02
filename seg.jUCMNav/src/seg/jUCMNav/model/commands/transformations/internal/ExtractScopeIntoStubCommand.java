@@ -21,9 +21,11 @@ import ucm.map.StartPoint;
 import ucm.map.Stub;
 import ucm.map.UCMmap;
 import urn.URNspec;
+import urncore.Component;
 import urncore.Condition;
 import urncore.IURNContainerRef;
 import urncore.IURNNode;
+import urncore.URNmodelElement;
 
 /**
  * Moves a {@link StubExtractionScope} onto a plug-in map and puts a stub in its place.
@@ -84,7 +86,9 @@ public class ExtractScopeIntoStubCommand extends Command {
     private final List<PathNode> createdNodes = new ArrayList<PathNode>();
     private final Map<NodeConnection, Condition> movedGuards = new HashMap<NodeConnection, Condition>();
     private final Map<IURNContainerRef, IURNContainerRef> movedComponents = new HashMap<IURNContainerRef, IURNContainerRef>();
+    private final List<ComponentRef> replicatedComponents = new ArrayList<ComponentRef>();
     private final Map<PathNode, IURNContainerRef> originalContainers = new HashMap<PathNode, IURNContainerRef>();
+    private final Map<IURNContainerRef, IURNContainerRef> originalParents = new HashMap<IURNContainerRef, IURNContainerRef>();
     private IURNContainerRef stubContainerBefore;
 
     public ExtractScopeIntoStubCommand(StubExtractionScope scope, UCMmap pluginMap, Stub stub, int x, int y) {
@@ -107,16 +111,22 @@ public class ExtractScopeIntoStubCommand extends Command {
         stub.setY(stubY);
         stub.setDiagram(parentMap);
 
-        moveComponents();
+        bringComponentsAcross();
         moveNodes();
         moveInternalConnections();
         rewireBoundary();
         anchorOwnExtremities();
 
         // Containment follows geometry in this model -- the suite asserts
-        // ParentFinder.getPossibleParent(node) == node.getContRef() for every node on every map --
-        // so anything placed or relocated has to have its container recomputed. Done last, once
-        // every node and component sits where it finally belongs.
+        // ParentFinder.getPossibleParent(x) == x's container for every node and every component
+        // reference on every map -- so anything placed or relocated has to have its container
+        // recomputed. Done last, once everything sits where it finally belongs, and components
+        // before nodes so a node can land in a replica that has already found its own parent.
+        for (Iterator<IURNContainerRef> it = movedComponents.keySet().iterator(); it.hasNext();)
+            reparent(it.next());
+        for (Iterator<ComponentRef> it = replicatedComponents.iterator(); it.hasNext();)
+            reparent(it.next());
+
         reparent(stub);
         for (Iterator<PathNode> it = scope.getScope().iterator(); it.hasNext();)
             reparent(it.next());
@@ -128,6 +138,12 @@ public class ExtractScopeIntoStubCommand extends Command {
         if (!originalContainers.containsKey(pn))
             originalContainers.put(pn, pn.getContRef());
         pn.setContRef(ParentFinder.getPossibleParent(pn));
+    }
+
+    private void reparent(IURNContainerRef ref) {
+        if (!originalParents.containsKey(ref))
+            originalParents.put(ref, ref.getParent());
+        ref.setParent(ParentFinder.getPossibleParent((URNmodelElement) ref));
     }
 
     public void redo() {
@@ -179,6 +195,18 @@ public class ExtractScopeIntoStubCommand extends Command {
         }
         originalContainers.clear();
 
+        for (Iterator<IURNContainerRef> it = originalParents.keySet().iterator(); it.hasNext();) {
+            IURNContainerRef ref = it.next();
+            ref.setParent(originalParents.get(ref));
+        }
+        originalParents.clear();
+
+        // Replicas exist only for the extracted map; nothing on the parent map ever referred to
+        // them, so once the nodes they held have their original components back they can go.
+        for (Iterator<ComponentRef> it = replicatedComponents.iterator(); it.hasNext();)
+            it.next().setDiagram(null);
+        replicatedComponents.clear();
+
         for (Iterator<NodeConnection> it = movedConnections.iterator(); it.hasNext();)
             it.next().setDiagram(parentMap);
         movedConnections.clear();
@@ -194,31 +222,69 @@ public class ExtractScopeIntoStubCommand extends Command {
     }
 
     /**
-     * Container references holding scoped nodes travel with them.
+     * Container references holding scoped nodes come across, by moving or by replication.
      *
-     * Only wholly-contained components move: one that also holds nodes staying behind cannot be in
-     * two maps at once, and splitting it means deciding what the two halves mean. Those nodes keep
-     * their component on the parent map and simply arrive on the plug-in map uncontained, which is
-     * lossy but visible, rather than silently wrong. Replication for the partial case is left for
-     * a follow-up.
+     * <p>
+     * A component whose every node is leaving simply <b>moves</b>, keeping its id, its metadata and
+     * its place in the hierarchy.
+     *
+     * <p>
+     * One that also holds nodes staying behind cannot move -- it would take them with it or strand
+     * them -- so a second reference to the same component definition is <b>replicated</b> on the
+     * plug-in map at the same bounds. That is not a copy of the component: a component definition
+     * is meant to have many references, one per map it appears on, so a team that participates in
+     * both the parent map and the plug-in map is exactly what two references say. The alternative,
+     * which this replaces, was to leave those nodes uncontained on the plug-in map -- losing which
+     * component performs them, which is most of what a UCM says.
+     *
+     * <p>
+     * Wholly-contained is judged over descendants too. A component whose own nodes all leave but
+     * which holds a child component with a node staying behind has to be replicated, or the child
+     * goes with it.
      */
-    private void moveComponents() {
+    private void bringComponentsAcross() {
         for (Iterator<IURNContainerRef> it = scope.getComponents().iterator(); it.hasNext();) {
             IURNContainerRef ref = it.next();
             if (!(ref instanceof ComponentRef))
                 continue;
 
-            boolean wholly = true;
-            for (Iterator<?> nodes = ref.getNodes().iterator(); nodes.hasNext();) {
-                Object node = nodes.next();
-                if (node instanceof PathNode && !scope.getScope().contains(node))
-                    wholly = false;
-            }
-            if (wholly) {
+            if (holdsNothingStayingBehind(ref)) {
                 movedComponents.put(ref, ref);
                 ((ComponentRef) ref).setDiagram(pluginMap);
+            } else {
+                replicate((ComponentRef) ref);
             }
         }
+    }
+
+    private boolean holdsNothingStayingBehind(IURNContainerRef ref) {
+        for (Iterator<?> it = ref.getNodes().iterator(); it.hasNext();) {
+            Object node = it.next();
+            if (node instanceof PathNode && !scope.getScope().contains(node))
+                return false;
+        }
+        for (Iterator<?> it = ref.getChildren().iterator(); it.hasNext();) {
+            Object child = it.next();
+            if (child instanceof IURNContainerRef && !holdsNothingStayingBehind((IURNContainerRef) child))
+                return false;
+        }
+        return true;
+    }
+
+    /** A second reference to the same component definition, at the same bounds, on the plug-in map. */
+    private ComponentRef replicate(ComponentRef original) {
+        int kind = original.getContDef() instanceof Component ? ((Component) original.getContDef()).getKind().getValue() : 0;
+        ComponentRef replica = (ComponentRef) ModelCreationFactory.getNewObject(urn, ComponentRef.class, kind, original.getContDef());
+
+        replica.setName(original.getName());
+        replica.setX(original.getX());
+        replica.setY(original.getY());
+        replica.setWidth(original.getWidth());
+        replica.setHeight(original.getHeight());
+        replica.setDiagram(pluginMap);
+
+        replicatedComponents.add(replica);
+        return replica;
     }
 
     private void moveNodes() {
