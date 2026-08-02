@@ -68,8 +68,10 @@ public class DelegatingCommandStack extends CommandStack implements CommandStack
      */
     public boolean canRedo() {
 
+        // Ask the parked command whether it can redo, rather than only whether one is parked.
+        // See canUndo() for why the answer must not fall through to the page stack.
         if (stkUrnSpec.getRedoCommand() != null)
-            return true;
+            return stkUrnSpec.canRedo();
         else {
             if (null == currentCommandStack)
                 return false;
@@ -85,7 +87,20 @@ public class DelegatingCommandStack extends CommandStack implements CommandStack
      */
     public boolean canUndo() {
         if (stkUrnSpec.getUndoCommand() != null)
-            return true;
+            // A command is parked on the URN-spec stack. Undo is available only if that command
+            // can actually be undone: this used to answer "yes" merely because the stack was
+            // non-empty, so when the parked command reported canUndo() == false the Undo action
+            // stayed enabled and every press was a silent no-op -- CommandStack.undo() opens
+            // with `if (!canUndo()) return;`. RefactorIntoStubCommand does exactly that, because
+            // it nests conditional sub-commands that end up empty and GEF treats an empty
+            // CompoundCommand as un-undoable (legacy bug 923 / #28).
+            //
+            // Deliberately NOT falling through to currentCommandStack here. The parked command
+            // spans diagrams and has typically already deleted or moved nodes that the page
+            // stack's commands were recorded against; undoing past it would apply inverse
+            // operations to a model that no longer matches them. Reporting "cannot undo" is
+            // both honest and the safe answer.
+            return stkUrnSpec.canUndo();
         else {
 
             if (null == currentCommandStack)

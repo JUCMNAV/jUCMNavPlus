@@ -152,6 +152,28 @@ public class RefactorIntoStubUndoTest {
     }
 
     /**
+     * The stack must not offer an Undo it cannot perform.
+     *
+     * Asserted as an agreement between the delegating stack and the command parked on it, rather
+     * than against a fixed expectation: today both are false (the refactor cannot undo, so the
+     * stack must say so); once the empty-nested-compound defect is fixed both become true. Either
+     * way they must agree, which is precisely what
+     * {@code DelegatingCommandStack.canUndo()} got wrong -- it answered "yes" whenever the
+     * URN-spec stack was non-empty, without asking the command, so Undo stayed enabled and every
+     * press was a silent no-op.
+     */
+    @Test
+    public void undoIsOfferedOnlyWhenTheParkedCommandCanActuallyUndo() {
+        Vector<RespRef> responsibilities = drawPathWithTwoResponsibilities();
+
+        Command refactor = refactorInto(responsibilities);
+        fixture.cs.execute(refactor);
+
+        assertEquals("the stack must agree with the parked command about whether undo is possible", //$NON-NLS-1$
+                refactor.canUndo(), fixture.cs.canUndo());
+    }
+
+    /**
      * The defect itself, at its narrowest: the refactor reports that it cannot be undone, so
      * {@code CommandStack.undo()} skips it entirely.
      *
