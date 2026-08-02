@@ -59,6 +59,31 @@ public class ReplaceEmptyPointCommand extends CompoundCommand implements ICreate
         setLabel(Messages.getString("ReplaceEmptyPointCommand.replaceEmptyPoint")); //$NON-NLS-1$
     }
 
+    /**
+     * An empty compound did nothing, and undoing nothing always succeeds.
+     *
+     * GEF's CompoundCommand returns false from canUndo() / canRedo() when its command list is
+     * empty. That makes any enclosing compound un-undoable, and CommandStack.undo() opens with
+     * `if (!canUndo()) return;`, so an empty one silently blocks undo instead of being a no-op.
+     * canExecute() is already guarded for the same reason; this completes it (#28).
+     */
+    public boolean canUndo() {
+        if (getCommands().isEmpty())
+            return true;
+
+        return super.canUndo();
+    }
+
+    /**
+     * @see #canUndo() -- CompoundCommand.canRedo() has the same empty-list rule.
+     */
+    public boolean canRedo() {
+        if (getCommands().isEmpty())
+            return true;
+
+        return super.canRedo();
+    }
+
     public boolean canExecute() {
         if (getCommands().size() == 0)
             return true;
