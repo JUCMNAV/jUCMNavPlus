@@ -28,11 +28,12 @@ import ucm.map.UCMmap;
  * displayed in disorder" after undoing several times.
  *
  * <p>
- * <b>Root cause.</b> {@link RefactorIntoStubCommand#build()} unconditionally nests two commands
- * that are conditional by nature: {@code CutAnyPathIfStillExistsCommand} and
- * {@code AttachNewExtremitiesToStubCommand}. When there is nothing for them to do -- which is the
- * case for the plain two-responsibility refactor in the bug report -- they stay <i>empty</i>
- * compounds, and GEF's {@code CompoundCommand.canUndo()} opens with
+ * <b>Root cause.</b> {@link RefactorIntoStubCommand#build()} unconditionally nested two commands
+ * that were conditional by nature: {@code CutAnyPathIfStillExistsCommand} and
+ * {@code AttachNewExtremitiesToStubCommand} (both since deleted, along with the approach that
+ * needed them). When there was nothing for them to do -- which is the case for the plain
+ * two-responsibility refactor in the bug report -- they stayed <i>empty</i> compounds, and GEF's
+ * {@code CompoundCommand.canUndo()} opens with
  *
  * <pre>
  * if (commandList.isEmpty())

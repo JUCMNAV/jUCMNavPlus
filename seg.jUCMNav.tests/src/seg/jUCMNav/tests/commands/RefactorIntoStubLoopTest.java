@@ -59,14 +59,14 @@ import urncore.IURNNode;
  * Thin synthetic branches have no interior severing points, which is why this shape stays clean.
  *
  * <p>
- * <b>The design criticism stands independently.</b> The command never computes a boundary. It
- * creates a throwaway {@code start -> empty -> end} path and turns the empty into the stub,
- * giving an arbitrary 1-in/1-out scaffold; deletes the selected nodes, which incidentally spawns
- * start and end points wherever a path was severed; then sweeps the map for "every start/end
- * point newer than me" and attaches whatever it finds. That is why
- * {@code RefactorIntoStubBindingsCommand} has to re-derive stub-to-plugin bindings by matching
- * names afterwards -- a boundary-based construction would know them. This test encodes the
- * property such a rewrite should preserve.
+ * <b>The design criticism stood independently, and the rewrite acted on it.</b> The command used
+ * to compute no boundary at all. It created a throwaway {@code start -> empty -> end} path and
+ * turned the empty into the stub, giving an arbitrary 1-in/1-out scaffold; deleted the selected
+ * nodes, which incidentally spawned start and end points wherever a path was severed; then swept
+ * the map for "every start/end point newer than me" and attached whatever it found. That is why
+ * {@code RefactorIntoStubBindingsCommand} had to re-derive stub-to-plugin bindings by matching
+ * names afterwards. It is now built from the boundary and knows them, and that class is gone; this
+ * test is the property the rewrite had to preserve, and does.
  *
  * @author Claude
  */

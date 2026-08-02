@@ -13,7 +13,6 @@ import org.eclipse.gef.commands.Command;
 import seg.jUCMNav.model.ModelCreationFactory;
 import seg.jUCMNav.model.util.ParentFinder;
 import seg.jUCMNav.model.util.StubExtractionScope;
-import seg.jUCMNav.model.util.URNNamingHelper;
 import ucm.map.ComponentRef;
 import ucm.map.EndPoint;
 import ucm.map.NodeConnection;
@@ -284,28 +283,6 @@ public class ExtractScopeIntoStubCommand extends Command {
     /** The plug-in end point that the given outbound connection continues from. */
     public EndPoint getExitPoint(NodeConnection outbound) {
         return exitPoints.get(outbound);
-    }
-
-    /** Names the created endpoints after the stub, so the plug-in map reads sensibly. */
-    public void nameEndpoints() {
-        int i = 1;
-        for (Iterator<NodeConnection> it = entryOrder.iterator(); it.hasNext();) {
-            StartPoint sp = entryPoints.get(it.next());
-            if (sp.getName() == null || sp.getName().length() == 0)
-                sp.setName("in" + (i++)); //$NON-NLS-1$
-        }
-        i = 1;
-        for (Iterator<NodeConnection> it = exitOrder.iterator(); it.hasNext();) {
-            EndPoint ep = exitPoints.get(it.next());
-            if (ep.getName() == null || ep.getName().length() == 0)
-                ep.setName("out" + (i++)); //$NON-NLS-1$
-        }
-    }
-
-    /** Unused ids are harmless, but keep the spec's counter honest. */
-    public void ensureNaming() {
-        if (urn != null)
-            URNNamingHelper.setElementNameAndID(urn, stub);
     }
 
     /** For diagnostics: everything this command will take off the parent map. */
