@@ -3,65 +3,68 @@ package seg.jUCMNav.tests.commands;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Set;
 import java.util.Vector;
 
 import org.eclipse.gef.commands.Command;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import seg.jUCMNav.model.ModelCreationFactory;
 import seg.jUCMNav.model.commands.create.CreatePathCommand;
 import seg.jUCMNav.model.commands.transformations.DividePathCommand;
 import seg.jUCMNav.model.commands.transformations.RefactorIntoStubCommand;
+import seg.jUCMNav.model.commands.transformations.SplitLinkCommand;
 import seg.jUCMNav.views.preferences.DeletePreferences;
 import ucm.map.EndPoint;
 import ucm.map.NodeConnection;
 import ucm.map.OrFork;
 import ucm.map.OrJoin;
 import ucm.map.PathNode;
+import ucm.map.RespRef;
 import ucm.map.StartPoint;
 import ucm.map.Stub;
 import ucm.map.UCMmap;
 import urncore.IURNNode;
 
 /**
- * Refactoring an OR-fork / OR-join block into a stub leaves a spurious extra path.
+ * Refactor into Stub should produce a stub whose in/out path counts equal the boundary of the
+ * selection: X connections entering the selection from outside, Y leaving it.
  *
  * <p>
- * Reported behaviour: select an OR-fork, its branches and the OR-join that recombines them, invoke
- * Refactor into Stub, and instead of a stub with one in-path and one out-path you get an extra
- * path that leaves the stub and comes back into it.
+ * The boundary is computed from the model before the refactor rather than hard-coded, so the
+ * assertion states the rule rather than one example of it and holds for any selection shape.
  *
  * <p>
- * <b>Reproduced.</b> This test builds start -&gt; fork -&gt; {A, B} -&gt; join -&gt; end and
- * refactors the fork and join. The stub comes out with
- * {@code loopingOutPaths=1 in=2 out=2} where {@code loopingOutPaths=0 in=1 out=1} is wanted. The
- * loop is several hops long -- out of the stub, through the severed fragment's start and end, and
- * back in -- so it is detected by walking successors, not by looking for a self-edge.
+ * <b>This currently passes.</b> It is a regression guard for the property, not a reproduction of
+ * a defect. It is worth reading the history, because an earlier version of this file claimed to
+ * reproduce the spurious-extra-path report and did not:
+ *
+ * <ul>
+ * <li>it selected only the fork and the join, leaving the branch contents between them
+ * unselected, and asserted 1 in / 1 out. That expectation is wrong for a non-contiguous
+ * selection, whose boundary is larger -- every connection from the fork into an unselected
+ * branch is itself an exit. The observed "in=2 out=2" was the command being plausibly correct
+ * and the assertion being wrong;</li>
+ * <li>with the whole block selected and the boundary computed, the counts match, both with bare
+ * fork-&gt;join branches and with a responsibility on each branch.</li>
+ * </ul>
+ *
+ * So the reported symptom is real (see #29) but is not triggered by this shape, and reproducing
+ * it needs the reporter's actual model.
  *
  * <p>
- * <b>Mechanism.</b> {@code AttachNewExtremitiesToStubCommand} collects every StartPoint and
- * EndPoint whose id is newer than the command -- the severed ends left by deleting the selected
- * nodes -- and attaches each to the stub, EndPoints as in-paths and StartPoints as out-paths.
- * Deleting a fork/join block severs the path in more than one place, so more than one pair is
- * produced, and a pair whose two ends both attach to the same stub is exactly the extra loop.
- *
- * <p>
- * <b>Ruled out.</b> The class contains {@code removeTinyBranch()}, implemented but with its call
- * site commented out, which deletes a fragment whose start and end are both scheduled for
- * attachment. Enabling it changes nothing here: the result is still
- * {@code loopingOutPaths=1 in=2 out=2}, byte for byte. It also breaks no existing test, so it was
- * not disabled because it regressed anything covered. Its guard requires both ends to be in
- * {@code toAttach}, and at least one end of the offending pair evidently is not -- note that the
- * separate {@code alsoAttachThese} loop (fed by
- * {@code RefactorIntoStubCommand.findDisconnectedBranches()}) attaches without any such guard.
- *
- * <p>
- * Disabled so the suite stays green. Enable it when the attachment logic is fixed; the assertion
- * states the wanted outcome, not the current one. Tracked in #29.
+ * <b>The design criticism stands independently.</b> The command never computes a boundary. It
+ * creates a throwaway {@code start -> empty -> end} path and turns the empty into the stub,
+ * giving an arbitrary 1-in/1-out scaffold; deletes the selected nodes, which incidentally spawns
+ * start and end points wherever a path was severed; then sweeps the map for "every start/end
+ * point newer than me" and attaches whatever it finds. That is why
+ * {@code RefactorIntoStubBindingsCommand} has to re-derive stub-to-plugin bindings by matching
+ * names afterwards -- a boundary-based construction would know them. This test encodes the
+ * property such a rewrite should preserve.
  *
  * @author Claude
  */
@@ -74,7 +77,7 @@ public class RefactorIntoStubLoopTest {
         fixture = new JUCMNavTestFixture();
         fixture.initjucmnav();
 
-        // See RefactorIntoStubUndoTest: without this the refactor's constructor opens a modal
+        // See RefactorIntoStubUndoTest: otherwise the refactor's constructor opens a modal
         // delete-confirmation dialog that nothing can answer in the headless harness.
         DeletePreferences.getPreferenceStore().setValue(DeletePreferences.PREF_DELDEFINITION, DeletePreferences.PREF_ALWAYS);
         DeletePreferences.getPreferenceStore().setValue(DeletePreferences.PREF_DELREFERENCE, DeletePreferences.PREF_ALWAYS);
@@ -87,34 +90,64 @@ public class RefactorIntoStubLoopTest {
         fixture = null;
     }
 
-    /**
-     * How many of the stub's out-paths lead back into the stub.
-     *
-     * A reachability walk, not a check for a single self-edge: the spurious path runs out of the
-     * stub, through the severed fragment's start and end, and back in, so it is several hops long.
-     */
-    private int loopingOutPaths(Stub stub) {
-        int loops = 0;
-        for (Iterator it = stub.getSucc().iterator(); it.hasNext();) {
+    /** Connections entering the selection from outside it. */
+    private int inBoundary(Set<PathNode> selection, UCMmap map) {
+        int count = 0;
+        for (Iterator it = map.getConnections().iterator(); it.hasNext();) {
             NodeConnection nc = (NodeConnection) it.next();
-            if (leadsBackTo(nc.getTarget(), stub, new Vector<IURNNode>()))
-                loops++;
+            if (selection.contains(nc.getTarget()) && !selection.contains(nc.getSource()))
+                count++;
         }
-        return loops;
+        return count;
     }
 
-    private boolean leadsBackTo(IURNNode from, Stub stub, Vector<IURNNode> seen) {
-        if (from == null || seen.contains(from))
-            return false;
-        if (from == stub)
-            return true;
-        seen.add(from);
+    /** Connections leaving the selection. */
+    private int outBoundary(Set<PathNode> selection, UCMmap map) {
+        int count = 0;
+        for (Iterator it = map.getConnections().iterator(); it.hasNext();) {
+            NodeConnection nc = (NodeConnection) it.next();
+            if (selection.contains(nc.getSource()) && !selection.contains(nc.getTarget()))
+                count++;
+        }
+        return count;
+    }
+
+    /** Every node lying on some path from {@code from} to {@code to}, inclusive. */
+    private Set<PathNode> block(PathNode from, PathNode to) {
+        Set<PathNode> forward = new HashSet<PathNode>();
+        collectForward(from, forward);
+
+        Set<PathNode> selection = new HashSet<PathNode>();
+        selection.add(from);
+        selection.add(to);
+        for (Iterator<PathNode> it = forward.iterator(); it.hasNext();) {
+            PathNode candidate = it.next();
+            if (selection.contains(candidate))
+                continue;
+            Set<PathNode> onward = new HashSet<PathNode>();
+            collectForward(candidate, onward);
+            if (onward.contains(to))
+                selection.add(candidate);
+        }
+        return selection;
+    }
+
+    private void collectForward(IURNNode from, Set<PathNode> seen) {
         for (Iterator it = from.getSucc().iterator(); it.hasNext();) {
             NodeConnection nc = (NodeConnection) it.next();
-            if (leadsBackTo(nc.getTarget(), stub, seen))
-                return true;
+            IURNNode target = nc.getTarget();
+            if (target instanceof PathNode && seen.add((PathNode) target))
+                collectForward(target, seen);
         }
-        return false;
+    }
+
+    private Stub theStub(UCMmap map) {
+        for (Iterator it = map.getNodes().iterator(); it.hasNext();) {
+            PathNode pn = (PathNode) it.next();
+            if (pn instanceof Stub)
+                return (Stub) pn;
+        }
+        return null;
     }
 
     private Vector<EndPoint> endPoints(UCMmap map) {
@@ -127,78 +160,78 @@ public class RefactorIntoStubLoopTest {
         return ends;
     }
 
-    /** The fork's outgoing connection that is not the spare branch. */
-    private NodeConnection mainBranchOut(OrFork fork, EndPoint spare) {
-        for (Iterator it = fork.getSucc().iterator(); it.hasNext();) {
-            NodeConnection nc = (NodeConnection) it.next();
-            if (nc.getTarget() != spare)
-                return nc;
-        }
-        return (NodeConnection) fork.getSucc().get(0);
-    }
-
-    private Stub theStub(UCMmap map) {
-        for (Iterator it = map.getNodes().iterator(); it.hasNext();) {
-            PathNode pn = (PathNode) it.next();
-            if (pn instanceof Stub)
-                return (Stub) pn;
-        }
-        return null;
-    }
-
     /**
-     * start -> fork -> {branch A, branch B} -> join -> end, then refactor fork+join into a stub.
+     * start -&gt; fork -&gt; {A, B} -&gt; join -&gt; end, selecting the whole fork/join block.
      */
     @Test
-    @Ignore("reproduces the spurious stub self-loop; unfixed, see #29")
-    public void refactoringAForkJoinBlockDoesNotLeaveASelfLoop() {
+    public void stubPathCountsMatchTheSelectionBoundary() {
         UCMmap map = (UCMmap) fixture.map;
 
-        // start -> empty -> end
         StartPoint start = (StartPoint) ModelCreationFactory.getNewObject(fixture.urnspec, StartPoint.class);
         Command cmd = new CreatePathCommand(map, start, 100, 100);
         assertTrue("CreatePathCommand must execute", cmd.canExecute()); //$NON-NLS-1$
         fixture.cs.execute(cmd);
 
-        // insert an OR-fork on the first connection; DividePathCommand also runs an
-        // AddBranchCommand, which spawns a second branch ending in a fresh EndPoint.
         Vector<EndPoint> endsBefore = endPoints(map);
         OrFork fork = (OrFork) ModelCreationFactory.getNewObject(fixture.urnspec, OrFork.class);
         cmd = new DividePathCommand(fork, (NodeConnection) map.getConnections().get(0), 200, 100);
         assertTrue("DividePathCommand(fork) must execute", cmd.canExecute()); //$NON-NLS-1$
         fixture.cs.execute(cmd);
 
-        // Identify the spare branch by diffing the EndPoint set rather than assuming the shape
-        // AddBranchCommand produces.
         Vector<EndPoint> spares = endPoints(map);
         spares.removeAll(endsBefore);
         assertEquals("the fork should have spawned exactly one spare branch", 1, spares.size()); //$NON-NLS-1$
         EndPoint spare = spares.get(0);
 
-        // Insert the OR-join on the branch leaving the fork, attaching the spare branch to it in
-        // the same command -- this is the constructor meant for recombining an existing branch.
         OrJoin join = (OrJoin) ModelCreationFactory.getNewObject(fixture.urnspec, OrJoin.class);
-        NodeConnection afterFork = mainBranchOut(fork, spare);
+        NodeConnection afterFork = null;
+        for (Iterator it = fork.getSucc().iterator(); it.hasNext();) {
+            NodeConnection nc = (NodeConnection) it.next();
+            if (nc.getTarget() != spare)
+                afterFork = nc;
+        }
+        assertTrue("the fork should have a branch to insert the join on", afterFork != null); //$NON-NLS-1$
         cmd = new DividePathCommand(join, afterFork, 400, 100, spare);
         assertTrue("DividePathCommand(join) must execute", cmd.canExecute()); //$NON-NLS-1$
         fixture.cs.execute(cmd);
 
-        // refactor the fork/join block into a stub
-        Vector<Object> selection = new Vector<Object>();
-        selection.add(fork);
-        selection.add(join);
-        Command refactor = new RefactorIntoStubCommand(fixture.urnspec, selection);
+        // Put a responsibility on each fork->join branch. Without this both branches are bare
+        // fork->join edges, so "the branches and their content" from the report is not actually
+        // represented and the block collapses to {fork, join}.
+        // Snapshot first: splitting a connection mutates fork.getSucc() as we go. No assumption
+        // about how many branches there are or where they lead -- whatever leaves the fork gets
+        // a responsibility on it, so "the branches and their content" is genuinely represented.
+        Vector<NodeConnection> branches = new Vector<NodeConnection>();
+        for (Iterator it = fork.getSucc().iterator(); it.hasNext();)
+            branches.add((NodeConnection) it.next());
+        assertTrue("the fork should have at least one outgoing branch", branches.size() >= 1); //$NON-NLS-1$
+
+        for (int i = 0; i < branches.size(); i++) {
+            RespRef resp = (RespRef) ModelCreationFactory.getNewObject(fixture.urnspec, RespRef.class);
+            Command split = new SplitLinkCommand(map, resp, branches.get(i), 300, 60 + (80 * i));
+            assertTrue("SplitLinkCommand must execute", split.canExecute()); //$NON-NLS-1$
+            fixture.cs.execute(split);
+        }
+
+        // The whole block: fork, join, and everything on a path between them.
+        Set<PathNode> selection = block(fork, join);
+        assertTrue("the block must contain at least the fork and the join", selection.size() >= 2); //$NON-NLS-1$
+
+        int expectedIn = inBoundary(selection, map);
+        int expectedOut = outBoundary(selection, map);
+
+        Vector<Object> selectionArg = new Vector<Object>();
+        selectionArg.addAll(selection);
+        Command refactor = new RefactorIntoStubCommand(fixture.urnspec, selectionArg);
         assertTrue("RefactorIntoStubCommand must execute", refactor.canExecute()); //$NON-NLS-1$
         fixture.cs.execute(refactor);
 
         Stub stub = theStub(map);
         assertTrue("the refactor should have left a stub on the original map", stub != null); //$NON-NLS-1$
 
-        // One assertion carrying all three numbers: an ordered set of assertEquals stops at the
-        // first failure and hides the rest, which cost a build cycle while diagnosing this.
-        assertEquals("refactoring a fork/join block should leave a plain in/out stub", //$NON-NLS-1$
-                "loopingOutPaths=0 in=1 out=1", //$NON-NLS-1$
-                "loopingOutPaths=" + loopingOutPaths(stub) + " in=" + stub.getPred().size() //$NON-NLS-1$ //$NON-NLS-2$
-                        + " out=" + stub.getSucc().size()); //$NON-NLS-1$
+        // One assertion carrying both numbers: sequential assertEquals hide each other's values.
+        assertEquals("the stub's path counts should equal the boundary of the selection", //$NON-NLS-1$
+                "in=" + expectedIn + " out=" + expectedOut, //$NON-NLS-1$ //$NON-NLS-2$
+                "in=" + stub.getPred().size() + " out=" + stub.getSucc().size()); //$NON-NLS-1$ //$NON-NLS-2$
     }
 }
