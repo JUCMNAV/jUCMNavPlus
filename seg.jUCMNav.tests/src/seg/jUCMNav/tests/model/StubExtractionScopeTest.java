@@ -203,36 +203,68 @@ public class StubExtractionScopeTest {
         }
     }
 
-    /** Start to end absorbs the entire path, leaving nothing outside. */
+    /**
+     * Start to end absorbs the entire path -- except the start and end points themselves, which
+     * belong to the map they punctuate and stay on it. What is left is the map's whole body, with
+     * the retained start and end points now sitting on its boundary.
+     */
     @Test
-    public void startToEndClosesOverTheWholeMap() {
+    public void startToEndClosesOverTheWholeBodyOfTheMap() {
         StubExtractionScope scope = new StubExtractionScope(sel("14", "16")); //$NON-NLS-1$ //$NON-NLS-2$
 
-        assertEquals("start..end should be the whole map", //$NON-NLS-1$
-                sampleMap.getNodes().size(), scope.getScope().size());
-        assertEquals("nothing enters or leaves a whole-map scope", //$NON-NLS-1$
-                "scope=" + sampleMap.getNodes().size() + " in=0 out=0", shape(scope)); //$NON-NLS-1$ //$NON-NLS-2$
+        assertEquals("start..end should be everything but the two extremities", //$NON-NLS-1$
+                sampleMap.getNodes().size() - 2, scope.getScope().size());
+        assertEquals("entered from the start point, left towards the end point", //$NON-NLS-1$
+                "scope=9 in=1 out=1", shape(scope)); //$NON-NLS-1$
+        assertEquals("the start point should be the one thing entering it", //$NON-NLS-1$
+                n("14"), scope.getInbound().get(0).getSource()); //$NON-NLS-1$
+        assertEquals("and the end point the one thing it leads to", //$NON-NLS-1$
+                n("16"), scope.getOutbound().get(0).getTarget()); //$NON-NLS-1$
     }
 
     // ------------------------------------------------------- boundary semantics
 
     @Test
-    public void selectingEverythingLeavesNoBoundary() {
+    public void selectingEverythingStillLeavesTheMapItsExtremities() {
         StubExtractionScope scope = new StubExtractionScope(new ArrayList<Object>(sampleMap.getNodes()));
-        assertEquals("a scope covering the map has no boundary", //$NON-NLS-1$
-                "scope=" + sampleMap.getNodes().size() + " in=0 out=0", shape(scope)); //$NON-NLS-1$ //$NON-NLS-2$
+        assertEquals("selecting the whole map extracts its body", //$NON-NLS-1$
+                "scope=9 in=1 out=1", shape(scope)); //$NON-NLS-1$
     }
 
-    /** The start point has no predecessor, so it contributes an exit but no entry. */
+    /**
+     * A start point on its own is nothing to extract: it is the map's way in, it stays, and once it
+     * has stayed there is no scope left.
+     */
     @Test
-    public void startPointAloneHasNoEntry() {
-        assertEquals("start point", "scope=1 in=0 out=1", shape(new StubExtractionScope(sel("14")))); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+    public void aStartPointAloneIsNotAnExtraction() {
+        assertTrue("a lone start point yields nothing to extract", //$NON-NLS-1$
+                new StubExtractionScope(sel("14")).isEmpty()); //$NON-NLS-1$
     }
 
     /** And the end point the mirror image. */
     @Test
-    public void endPointAloneHasNoExit() {
-        assertEquals("end point", "scope=1 in=1 out=0", shape(new StubExtractionScope(sel("16")))); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+    public void anEndPointAloneIsNotAnExtraction() {
+        assertTrue("a lone end point yields nothing to extract", //$NON-NLS-1$
+                new StubExtractionScope(sel("16")).isEmpty()); //$NON-NLS-1$
+    }
+
+    /**
+     * Selecting a start point alongside real content extracts the content and turns the start point
+     * into the boundary -- which is what gives the stub its in-path.
+     *
+     * <p>
+     * Moving it instead was the defect: the parent map was left with a stub nothing fed and no
+     * start point anywhere, and any scenario anchored on that start point began its traversal
+     * inside the plug-in map, with no stub to return through when it reached the far end.
+     */
+    @Test
+    public void aSelectedStartPointBecomesTheBoundaryRatherThanMoving() {
+        StubExtractionScope scope = new StubExtractionScope(sel("14", "56")); //$NON-NLS-1$ //$NON-NLS-2$
+
+        assertFalse("the start point must stay on the parent map", scope.getScope().contains(n("14"))); //$NON-NLS-1$ //$NON-NLS-2$
+        assertEquals("but it must feed the scope, giving the stub its way in", //$NON-NLS-1$
+                1, scope.getInbound().size());
+        assertEquals("through the connection leaving it", n("14"), scope.getInbound().get(0).getSource()); //$NON-NLS-1$ //$NON-NLS-2$
     }
 
     /** The fork's two outgoing branches are two separate exits, not one. */
@@ -389,9 +421,15 @@ public class StubExtractionScopeTest {
             StubExtractionScope scope = new StubExtractionScope(selection);
             String where = "selection " + idsOf(selection); //$NON-NLS-1$
 
-            // the scope never loses anything the user picked
+            // the scope never loses anything the user picked, bar the extremities it deliberately
+            // leaves on the map they punctuate
+            Set<PathNode> expected = new LinkedHashSet<PathNode>(selection);
+            expected.remove(n("14")); //$NON-NLS-1$
+            expected.remove(n("16")); //$NON-NLS-1$
             assertTrue(where + ": scope must contain the selection", //$NON-NLS-1$
-                    scope.getScope().containsAll(selection));
+                    scope.getScope().containsAll(expected));
+            assertFalse(where + ": the start point must never move", scope.getScope().contains(n("14"))); //$NON-NLS-1$ //$NON-NLS-2$
+            assertFalse(where + ": the end point must never move", scope.getScope().contains(n("16"))); //$NON-NLS-1$ //$NON-NLS-2$
 
             // a connection cannot both enter and leave
             Set<NodeConnection> in = new HashSet<NodeConnection>(scope.getInbound());
@@ -417,9 +455,12 @@ public class StubExtractionScopeTest {
                     scope.getInbound().size() + ":" + scope.getOutbound().size(), //$NON-NLS-1$
                     again.getInbound().size() + ":" + again.getOutbound().size()); //$NON-NLS-1$
 
-            // a non-empty selection always knows its map
-            if (!selection.isEmpty())
+            // a scope with something in it always knows its map. A selection of nothing but the
+            // map's extremities leaves an empty scope, and an empty scope has no map to name.
+            if (!scope.getScope().isEmpty())
                 assertEquals(where + ": the map must be identified", sampleMap, scope.getMap()); //$NON-NLS-1$
+            else
+                assertTrue(where + ": an empty scope must report empty", scope.isEmpty()); //$NON-NLS-1$
 
             checked++;
         }
@@ -450,14 +491,135 @@ public class StubExtractionScopeTest {
             int in = scope.getInbound().size();
             int out = scope.getOutbound().size();
 
-            // The only scope with no boundary at all is one that swallowed the whole map.
-            if (in == 0 && out == 0)
-                assertEquals(where + ": only a whole-map scope can have no boundary", //$NON-NLS-1$
-                        sampleMap.getNodes().size(), scope.getScope().size());
+            // Since the map's extremities stay behind, anything left to extract is entered and
+            // left through something.
+            if (!scope.isEmpty())
+                assertTrue(where + ": a non-empty scope must have a boundary", in + out > 0); //$NON-NLS-1$
 
             // Boundary connections are drawn from the map, so they can never outnumber them.
             assertTrue(where + ": boundary cannot exceed the map's connections", //$NON-NLS-1$
                     in + out <= sampleMap.getConnections().size());
         }
+    }
+
+    /**
+     * The guarantee the command rests on: every non-empty scope yields at least one stub in-path
+     * and one out-path.
+     *
+     * <p>
+     * A stub path comes from one of two places -- a connection crossing the boundary, or an
+     * extremity the scope owns despite the map's own start and end points having been left behind,
+     * which in a well-formed map means an orphan node and in this sample means nothing at all.
+     * This asserts across all 2047 non-empty subsets that the two together are never both zero on
+     * either side, which is what stops the extraction leaving a parent map whose stub has no way in
+     * and whose path has no beginning.
+     *
+     * <p>
+     * The argument, which the sweep only confirms: every node in scope has a predecessor, since the
+     * only nodes without one are start points and those never enter the scope. That predecessor is
+     * either interior or an inbound crossing; follow the interior ones back and the chain ends at a
+     * node fed from outside, because a start point is always outside.
+     */
+    @Test
+    public void everyNonEmptyScopeCanBeGivenAWayInAndAWayOut() {
+        List<PathNode> nodes = new ArrayList<PathNode>();
+        for (Iterator it = sampleMap.getNodes().iterator(); it.hasNext();)
+            nodes.add((PathNode) it.next());
+
+        for (int mask = 1; mask < (1 << nodes.size()); mask++) {
+            Set<PathNode> selection = new LinkedHashSet<PathNode>();
+            for (int bit = 0; bit < nodes.size(); bit++)
+                if ((mask & (1 << bit)) != 0)
+                    selection.add(nodes.get(bit));
+
+            StubExtractionScope scope = new StubExtractionScope(selection);
+            String where = "selection " + idsOf(selection); //$NON-NLS-1$
+
+            // A selection of nothing but extremities leaves nothing to extract, and the command
+            // declines it rather than building an empty stub.
+            if (scope.isEmpty())
+                continue;
+
+            assertTrue(where + ": the stub would have no way in", //$NON-NLS-1$
+                    scope.getInbound().size() + scope.getOwnStarts().size() >= 1);
+            assertTrue(where + ": the stub would have no way out", //$NON-NLS-1$
+                    scope.getOutbound().size() + scope.getOwnEnds().size() >= 1);
+
+            // An own extremity is a node of the scope, and it is one precisely when the map gives
+            // it nothing to consume or nothing to feed.
+            for (Iterator<PathNode> it = scope.getOwnStarts().iterator(); it.hasNext();) {
+                PathNode pn = it.next();
+                assertTrue(where + ": an own start must be in scope", scope.getScope().contains(pn)); //$NON-NLS-1$
+                assertTrue(where + ": an own start must have no predecessor", pn.getPred().isEmpty()); //$NON-NLS-1$
+            }
+            for (Iterator<PathNode> it = scope.getOwnEnds().iterator(); it.hasNext();) {
+                PathNode pn = it.next();
+                assertTrue(where + ": an own end must be in scope", scope.getScope().contains(pn)); //$NON-NLS-1$
+                assertTrue(where + ": an own end must have no successor", pn.getSucc().isEmpty()); //$NON-NLS-1$
+            }
+        }
+    }
+
+    /**
+     * A well-formed map never hands the scope an extremity of its own, because the only nodes that
+     * could be one are its start and end points, and those stay put.
+     */
+    @Test
+    public void aWellFormedMapNeverGivesTheScopeAnExtremityOfItsOwn() {
+        StubExtractionScope whole = new StubExtractionScope(new ArrayList<Object>(sampleMap.getNodes()));
+        assertTrue("the whole map's body owns no extremity", //$NON-NLS-1$
+                whole.getOwnStarts().isEmpty() && whole.getOwnEnds().isEmpty());
+
+        StubExtractionScope midPath = new StubExtractionScope(sel("37", "49")); //$NON-NLS-1$ //$NON-NLS-2$
+        assertTrue("nor does a scope in the middle of a path", //$NON-NLS-1$
+                midPath.getOwnStarts().isEmpty() && midPath.getOwnEnds().isEmpty());
+    }
+
+    /**
+     * The reported case: selecting the start point and RespC. Everything between them is extracted,
+     * the start point stays, and the connection out of it is what gives the stub its way in.
+     */
+    @Test
+    public void startPointAndRespCLeaveTheStartPointOnTheParentMap() {
+        StubExtractionScope scope = new StubExtractionScope(sel("14", "60")); //$NON-NLS-1$ //$NON-NLS-2$
+
+        assertEquals("start..RespC absorbs everything but the two extremities", //$NON-NLS-1$
+                sampleMap.getNodes().size() - 2, scope.getScope().size());
+        assertEquals("entered from the start point, left towards the end point", //$NON-NLS-1$
+                "scope=9 in=1 out=1", shape(scope)); //$NON-NLS-1$
+        assertEquals("the way in comes from the start point that stayed", //$NON-NLS-1$
+                n("14"), scope.getInbound().get(0).getSource()); //$NON-NLS-1$
+    }
+
+    /** An orphan node -- no predecessor, and not a start point -- is the case that survives. */
+    @Test
+    public void anOrphanNodeIsAnExtremityTheScopeOwns() {
+        URNspec urn = UrnFactory.eINSTANCE.createURNspec();
+        urn.setUrndef(UrncoreFactory.eINSTANCE.createURNdefinition());
+        UCMmap map = MapFactory.eINSTANCE.createUCMmap();
+        urn.getUrndef().getSpecDiagrams().add(map);
+
+        // A generated model can produce this; a hand-drawn one cannot.
+        EmptyPoint orphan = MapFactory.eINSTANCE.createEmptyPoint();
+        EmptyPoint after = MapFactory.eINSTANCE.createEmptyPoint();
+        EndPoint end = MapFactory.eINSTANCE.createEndPoint();
+        map.getNodes().add(orphan);
+        map.getNodes().add(after);
+        map.getNodes().add(end);
+        connect(map, orphan, after);
+        connect(map, after, end);
+
+        StubExtractionScope scope = new StubExtractionScope(Arrays.asList(new PathNode[] { orphan, after }));
+
+        assertEquals("the orphan is the scope's own way in", //$NON-NLS-1$
+                Collections.singletonList((PathNode) orphan), scope.getOwnStarts());
+        assertEquals("nothing enters it from the map", 0, scope.getInbound().size()); //$NON-NLS-1$
+        assertTrue("so without the orphan the stub would have no in-path at all", //$NON-NLS-1$
+                scope.getInbound().size() + scope.getOwnStarts().size() >= 1);
+    }
+
+    @Test(expected = UnsupportedOperationException.class)
+    public void theOwnStartsAreNotModifiableByCallers() {
+        new StubExtractionScope(sel("56")).getOwnStarts().clear(); //$NON-NLS-1$
     }
 }
