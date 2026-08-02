@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urn:URNspec xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ucm.map="http:///ucm/map.ecore" xmlns:urn="http:///urn.ecore" name="PM4PyDiscovery" author="pm4py-ucm" created="July 1, 2026, 11:20:44 PM Eastern Daylight Time" modified="July 1, 2026, 11:20:44 PM Eastern Daylight Time" specVersion="4" urnVersion="1.27" nextGlobalID="55">
+  <ucmspec>
+    <scenarioGroups name="MinedScenarios" id="52">
+      <scenarios name="v1_flow" id="53" description="Intent: Covers 784 case(s).&#xA;Partial-order: Create Ticket -> Triage -> (Assign Developer || Assign Reviewer) -> Implement Fix -> (Test Fix) -> Deploy Fix -> Close Ticket&#xA;Frequency: 784 case(s); linearizations: 2; distinct sequences in log: 2.&#xA;Case IDs: Case_0001, Case_0002, Case_0003, Case_0004, Case_0006, Case_0009, Case_0010, Case_0011, Case_0012, Case_0013, ... (+774 more)">
+        <initializations value="v1" variable="50"/>
+        <initializations value="1" variable="51"/>
+        <startPoints enabled="true" startPoint="2"/>
+        <endPoints enabled="true" mandatory="true" endPoint="3"/>
+      </scenarios>
+      <scenarios name="v2_TwoTestFix" id="54" description="Intent: Covers 348 case(s) that repeats Test Fix.&#xA;Partial-order: Create Ticket -> Triage -> (Assign Developer || Assign Reviewer) -> Implement Fix -> (Test Fix)^>=2 -> Deploy Fix -> Close Ticket&#xA;Frequency: 348 case(s); linearizations: 2; distinct sequences in log: 9.&#xA;Case IDs: Case_0005, Case_0007, Case_0008, Case_0016, Case_0019, Case_0020, Case_0025, Case_0028, Case_0031, Case_0032, ... (+338 more)">
+        <initializations value="v2" variable="50"/>
+        <initializations value="2" variable="51"/>
+        <startPoints enabled="true" startPoint="2"/>
+        <endPoints enabled="true" mandatory="true" endPoint="3"/>
+      </scenarios>
+    </scenarioGroups>
+    <variables name="variant_id" id="50" type="enumeration" enumerationType="49"/>
+    <variables name="Loop_TestFix" id="51" type="integer"/>
+    <enumerationTypes name="VariantId" id="49" values="v1,v2" instances="50"/>
+  </ucmspec>
+  <grlspec>
+    <impactModel/>
+    <featureModel/>
+  </grlspec>
+  <urndef>
+    <responsibilities name="Create&#xD;&#xA;Ticket" id="35" respRefs="4"/>
+    <responsibilities name="Triage" id="36" respRefs="5"/>
+    <responsibilities name="Assign&#xD;&#xA;Reviewer" id="37" respRefs="8"/>
+    <responsibilities name="Assign&#xD;&#xA;Developer" id="38" respRefs="9"/>
+    <responsibilities name="Implement&#xD;&#xA;Fix" id="39" respRefs="10"/>
+    <responsibilities name="Test Fix" id="40" respRefs="13" expression="Loop_TestFix = Loop_TestFix - 1;"/>
+    <responsibilities name="Fix Bug" id="41" respRefs="14"/>
+    <responsibilities name="Deploy Fix" id="42" respRefs="15"/>
+    <responsibilities name="Close Ticket" id="43" respRefs="16"/>
+    <specDiagrams xsi:type="ucm.map:UCMmap" name="DiscoveredMap" id="1">
+      <nodes xsi:type="ucm.map:StartPoint" name="start" id="2" x="30" y="111" succ="//@urndef/@specDiagrams.0/@connections.0" scenarioStartPoints="//@ucmspec/@scenarioGroups.0/@scenarios.0/@startPoints.0 //@ucmspec/@scenarioGroups.0/@scenarios.1/@startPoints.0">
+        <label/>
+      </nodes>
+      <nodes xsi:type="ucm.map:EndPoint" name="end" id="3" x="1957" y="111" pred="//@urndef/@specDiagrams.0/@connections.1" scenarioEndPoints="//@ucmspec/@scenarioGroups.0/@scenarios.0/@endPoints.0 //@ucmspec/@scenarioGroups.0/@scenarios.1/@endPoints.0">
+        <label/>
+      </nodes>
+      <nodes xsi:type="ucm.map:RespRef" name="Create&#xD;&#xA;Ticket" id="4" x="133" y="111" contRef="30" succ="//@urndef/@specDiagrams.0/@connections.2" pred="//@urndef/@specDiagrams.0/@connections.0" respDef="35">
+        <label/>
+      </nodes>
+      <nodes xsi:type="ucm.map:RespRef" name="Triage" id="5" x="233" y="111" contRef="31" succ="//@urndef/@specDiagrams.0/@connections.4" pred="//@urndef/@specDiagrams.0/@connections.2" respDef="36">
+        <label/>
+      </nodes>
+      <nodes xsi:type="ucm.map:AndFork" name="AndFork" id="6" x="384" y="157" succ="//@urndef/@specDiagrams.0/@connections.6 //@urndef/@specDiagrams.0/@connections.8" pred="//@urndef/@specDiagrams.0/@connections.5"/>
+      <nodes xsi:type="ucm.map:AndJoin" name="AndJoin" id="7" x="686" y="179" succ="//@urndef/@specDiagrams.0/@connections.14" pred="//@urndef/@specDiagrams.0/@connections.11 //@urndef/@specDiagrams.0/@connections.13"/>
+      <nodes xsi:type="ucm.map:RespRef" name="Assign&#xD;&#xA;Reviewer" id="8" x="535" y="111" contRef="31" succ="//@urndef/@specDiagrams.0/@connections.10" pred="//@urndef/@specDiagrams.0/@connections.7" respDef="37">
+        <label/>
+      </nodes>
+      <nodes xsi:type="ucm.map:RespRef" name="Assign&#xD;&#xA;Developer" id="9" x="535" y="50" contRef="31" succ="//@urndef/@specDiagrams.0/@connections.12" pred="//@urndef/@specDiagrams.0/@connections.9" respDef="38">
+        <label/>
+      </nodes>
+      <nodes xsi:type="ucm.map:RespRef" name="Implement&#xD;&#xA;Fix" id="10" x="836" y="179" contRef="32" succ="//@urndef/@specDiagrams.0/@connections.17" pred="//@urndef/@specDiagrams.0/@connections.15" respDef="39">
+        <label/>
+      </nodes>
+      <nodes xsi:type="ucm.map:OrJoin" name="LoopJoin" id="11" x="989" y="265" succ="//@urndef/@specDiagrams.0/@connections.19" pred="//@urndef/@specDiagrams.0/@connections.18 //@urndef/@specDiagrams.0/@connections.28"/>
+      <nodes xsi:type="ucm.map:OrFork" name="LoopFork" id="12" x="1337" y="351" succ="//@urndef/@specDiagrams.0/@connections.23 //@urndef/@specDiagrams.0/@connections.25" pred="//@urndef/@specDiagrams.0/@connections.22"/>
+      <nodes xsi:type="ucm.map:RespRef" name="Test Fix" id="13" x="1163" y="351" contRef="33" succ="//@urndef/@specDiagrams.0/@connections.21" pred="//@urndef/@specDiagrams.0/@connections.20" respDef="40">
+        <label/>
+      </nodes>
+      <nodes xsi:type="ucm.map:RespRef" name="Fix Bug" id="14" x="1489" y="179" contRef="32" succ="//@urndef/@specDiagrams.0/@connections.16" pred="//@urndef/@specDiagrams.0/@connections.24" respDef="41">
+        <label/>
+      </nodes>
+      <nodes xsi:type="ucm.map:RespRef" name="Deploy Fix" id="15" x="1760" y="223" contRef="34" succ="//@urndef/@specDiagrams.0/@connections.3" pred="//@urndef/@specDiagrams.0/@connections.26 //@urndef/@specDiagrams.0/@connections.29" respDef="42">
+        <label/>
+      </nodes>
+      <nodes xsi:type="ucm.map:RespRef" name="Close Ticket" id="16" x="1879" y="111" contRef="31" succ="//@urndef/@specDiagrams.0/@connections.1" pred="//@urndef/@specDiagrams.0/@connections.3" respDef="43">
+        <label/>
+      </nodes>
+      <nodes xsi:type="ucm.map:EmptyPoint" name="Bend" id="17" x="309" y="150" succ="//@urndef/@specDiagrams.0/@connections.5" pred="//@urndef/@specDiagrams.0/@connections.4"/>
+      <nodes xsi:type="ucm.map:EmptyPoint" name="Bend" id="18" x="459" y="198" succ="//@urndef/@specDiagrams.0/@connections.7" pred="//@urndef/@specDiagrams.0/@connections.6"/>
+      <nodes xsi:type="ucm.map:EmptyPoint" name="Bend" id="19" x="459" y="143" succ="//@urndef/@specDiagrams.0/@connections.9" pred="//@urndef/@specDiagrams.0/@connections.8"/>
+      <nodes xsi:type="ucm.map:EmptyPoint" name="Bend" id="20" x="611" y="198" succ="//@urndef/@specDiagrams.0/@connections.11" pred="//@urndef/@specDiagrams.0/@connections.10"/>
+      <nodes xsi:type="ucm.map:EmptyPoint" name="Bend" id="21" x="611" y="143" succ="//@urndef/@specDiagrams.0/@connections.13" pred="//@urndef/@specDiagrams.0/@connections.12"/>
+      <nodes xsi:type="ucm.map:EmptyPoint" name="Bend" id="22" x="760" y="179" succ="//@urndef/@specDiagrams.0/@connections.15" pred="//@urndef/@specDiagrams.0/@connections.14"/>
+      <nodes xsi:type="ucm.map:EmptyPoint" name="Bend" id="23" x="1565" y="181" succ="//@urndef/@specDiagrams.0/@connections.27" pred="//@urndef/@specDiagrams.0/@connections.16"/>
+      <nodes xsi:type="ucm.map:DirectionArrow" name="Bend" id="24" x="913" y="250" succ="//@urndef/@specDiagrams.0/@connections.18" pred="//@urndef/@specDiagrams.0/@connections.17"/>
+      <nodes xsi:type="ucm.map:EmptyPoint" name="Bend" id="25" x="1065" y="349" succ="//@urndef/@specDiagrams.0/@connections.20" pred="//@urndef/@specDiagrams.0/@connections.19"/>
+      <nodes xsi:type="ucm.map:EmptyPoint" name="Bend" id="26" x="1261" y="351" succ="//@urndef/@specDiagrams.0/@connections.22" pred="//@urndef/@specDiagrams.0/@connections.21"/>
+      <nodes xsi:type="ucm.map:EmptyPoint" name="Bend" id="27" x="1413" y="347" succ="//@urndef/@specDiagrams.0/@connections.24" pred="//@urndef/@specDiagrams.0/@connections.23"/>
+      <nodes xsi:type="ucm.map:EmptyPoint" name="Bend" id="28" x="1489" y="415" succ="//@urndef/@specDiagrams.0/@connections.26" pred="//@urndef/@specDiagrams.0/@connections.25"/>
+      <nodes xsi:type="ucm.map:OrFork" name="LoopEntryGuard" id="29" x="1641" y="223" succ="//@urndef/@specDiagrams.0/@connections.28 //@urndef/@specDiagrams.0/@connections.29" pred="//@urndef/@specDiagrams.0/@connections.27"/>
+      <contRefs xsi:type="ucm.map:ComponentRef" name="Reporter" id="30" x="96" y="69" width="76" height="60" contDef="44" nodes="4">
+        <label/>
+      </contRefs>
+      <contRefs xsi:type="ucm.map:ComponentRef" name="Triage Team" id="31" x="216" y="8" width="1681" height="121" contDef="45" nodes="5 8 9 16">
+        <label/>
+      </contRefs>
+      <contRefs xsi:type="ucm.map:ComponentRef" name="Dev Team" id="32" x="819" y="137" width="688" height="60" contDef="46" nodes="10 14">
+        <label/>
+      </contRefs>
+      <contRefs xsi:type="ucm.map:ComponentRef" name="QA Team" id="33" x="1123" y="309" width="79" height="60" contDef="47" nodes="13">
+        <label/>
+      </contRefs>
+      <contRefs xsi:type="ucm.map:ComponentRef" name="DevOps Team" id="34" x="1703" y="181" width="114" height="60" contDef="48" nodes="15">
+        <label/>
+      </contRefs>
+      <connections xsi:type="ucm.map:NodeConnection" source="2" target="4"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="16" target="3"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="4" target="5"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="15" target="16"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="5" target="17"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="17" target="6"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="6" target="18"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="18" target="8"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="6" target="19"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="19" target="9"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="8" target="20"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="20" target="7"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="9" target="21"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="21" target="7"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="7" target="22"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="22" target="10"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="14" target="23"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="10" target="24"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="24" target="11"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="11" target="25"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="25" target="13"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="13" target="26"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="26" target="12"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="12" target="27">
+        <condition label="redo" expression="Loop_TestFix > 0"/>
+      </connections>
+      <connections xsi:type="ucm.map:NodeConnection" source="27" target="14"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="12" target="28">
+        <condition label="exit" expression="Loop_TestFix &lt;= 0"/>
+      </connections>
+      <connections xsi:type="ucm.map:NodeConnection" source="28" target="15"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="23" target="29"/>
+      <connections xsi:type="ucm.map:NodeConnection" source="29" target="11">
+        <condition label="enter" expression="Loop_TestFix > 0"/>
+      </connections>
+      <connections xsi:type="ucm.map:NodeConnection" source="29" target="15">
+        <condition label="bypass" expression="Loop_TestFix &lt;= 0"/>
+      </connections>
+    </specDiagrams>
+    <components name="Reporter" id="44" lineColor="255,143,0" fillColor="255,236,179" filled="true" contRefs="30"/>
+    <components name="Triage Team" id="45" lineColor="46,125,50" fillColor="200,230,201" filled="true" contRefs="31"/>
+    <components name="Dev Team" id="46" lineColor="239,108,0" fillColor="255,224,178" filled="true" contRefs="32"/>
+    <components name="QA Team" id="47" lineColor="123,31,162" fillColor="225,190,231" filled="true" contRefs="33"/>
+    <components name="DevOps Team" id="48" lineColor="158,157,36" fillColor="240,244,195" filled="true" contRefs="34"/>
+  </urndef>
+</urn:URNspec>
