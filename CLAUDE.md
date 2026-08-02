@@ -19,8 +19,8 @@ against modern Java/Eclipse with no working deployment. **Phase A
 (compile-clean) and Phase B (QA bug hunt) of the modernization are now
 complete** and shipping from `master` against Java 21 / Eclipse 2026-03,
 with the p2 update site published continuously to
-`https://jucmnav.github.io/jUCMNavPlus/` via GitHub Pages. The 319-test
-JUnit suite gates every push.
+`https://jucmnav.github.io/jUCMNavPlus/` via GitHub Pages. The JUnit suite
+gates every push.
 
 When you arrive in a fresh session, expect a working build, not a rescue
 project. The targets and golden rules below still apply — they're what
@@ -67,6 +67,49 @@ mvn -B clean verify
 harness. **Test failures fail the build.** On Linux the workbench needs a
 display, so CI wraps `mvn` in `xvfb-run`. Pass `-DskipTests` to skip tests
 locally if you only want the update site.
+
+### The fast local loop
+
+The full gate is ~6.5 minutes and almost all of it is the suite itself, so
+the way to iterate quickly is to run fewer tests, not to build less:
+
+```bash
+mvn -B -o verify -pl seg.jUCMNav,seg.jUCMNav.tests -Dtest=StubExtractionScopeTest -DfailIfNoTests=false
+```
+
+That is **~50 seconds**, against ~6m30 for everything. Measured on the
+2026-08-02 tree (395 tests):
+
+| command | time |
+|---|---|
+| `mvn -B clean verify` (the gate) | ~7 min |
+| same without `clean`, two modules | 6m26 |
+| one test class, `-o`, two modules | 48 s |
+
+What each flag buys, so you can drop the ones you don't need:
+
+- `-Dtest=Foo` (comma-separated for several, `-DfailIfNoTests=false` so a
+  module with no match doesn't fail) — this is the whole win. The suite is
+  ~5.5 min of the 6.5.
+- `-pl seg.jUCMNav,seg.jUCMNav.tests` skips the feature and the p2
+  repository, which you almost never need locally. Both modules are
+  required: the test fragment cannot resolve its host from the repo alone.
+- no `clean` — Tycho recompiles incrementally. Use `clean` when changing
+  `MANIFEST.MF`, `build.properties` or the target platform.
+- `-o` (offline) skips remote metadata checks, worth a few seconds.
+
+The residual ~45 s is Tycho target-platform resolution plus starting an
+OSGi framework, and is paid once per invocation — so batch classes into one
+`-Dtest=` rather than running several commands.
+
+Test classes cannot run in parallel: `useUIThread=true` puts everything on
+the workbench's UI thread. The slow classes (`JUCMNavGRLCommandTests` ~57 s,
+`UCMScenarioViewerTests` ~54 s, `JUCMNavCommandTests` ~47 s, `ProgressTests`
+~46 s) genuinely drive the workbench; the pure-model ones are already
+sub-second.
+
+**Run the full `mvn -B clean verify` before any push.** The scoped run is
+for the edit loop, not for the gate.
 
 In the IDE: import all four (now five) Maven modules as existing projects,
 set the target platform to `seg.jUCMNav.target/seg.jUCMNav.target`, then
