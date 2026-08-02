@@ -15,9 +15,9 @@ Classic (diagram editors), and MDT/OCL (constraints).
 tests, and runs on Java 21 LTS + Eclipse 2026-03 (4.39). The full Phase A
 (compile-clean, Tycho build, p2 update site) and Phase B (QA bug hunt:
 SWT leaks, dispose races, thread-affinity issues, GEF generics fallout,
-JDK 21 API drift) are merged. Every push to `master` runs the 337-test
+JDK 21 API drift) are merged. Every push to `master` runs the 350-test
 JUnit suite under a headless Eclipse UI harness as a hard CI gate. The
-current release is **10.0.5**.
+current release is **10.0.6**.
 
 The installable update site is published continuously to GitHub Pages at
 [`https://jucmnav.github.io/jUCMNavPlus/`](https://jucmnav.github.io/jUCMNavPlus/) —
@@ -32,7 +32,7 @@ organization for continuity with the historical project.
 - [QA_FINDINGS.md](QA_FINDINGS.md) — Phase B static bug-hunt report
   (110 candidates, 78 verified findings across 7 categories).
 - [docs/legacy-issue-triage.md](docs/legacy-issue-triage.md) — classification
-  of the 107 open issues on the legacy
+  of the open issues on the legacy
   [`JUCMNAV/projetseg-update`](https://github.com/JUCMNAV/projetseg-update)
   repo, with notes on which are likely fixed by the modernization.
 
@@ -48,7 +48,7 @@ trail, see [`git log master`](https://github.com/JUCMNAV/jUCMNavPlus/commits/mas
 | **CORE library** | The `ca.mcgill.sel.core` dependency is now vendored in-tree | Builds don't depend on an external university Maven host that could disappear; everything you need to compile and run is in this repo |
 | **EMF model** | The URN / UCM / GRL / FM model code was regenerated from the `.ecore` / `.genmodel` sources using current EMF tooling | Model loading, serialization, and validation run on supported APIs (no JDK-removed methods); future model changes can be regenerated cleanly instead of hand-patched |
 | **Distribution** | One-click p2 update site from GitHub Pages | Paste `https://jucmnav.github.io/jUCMNavPlus/` into Eclipse's Install New Software and you're done — automatic updates via Help → Check for Updates |
-| **Quality gate** | 328 JUnit tests under a headless Eclipse harness, gating every push | Regressions get caught in CI instead of by you mid-presentation |
+| **Quality gate** | 350 JUnit tests under a headless Eclipse harness, gating every push | Regressions get caught in CI instead of by you mid-presentation |
 | **CI / artifacts** | GitHub Actions builds + tests + publishes the update site on every push to `master`; downloadable site artifact on every PR build | You can install a feature-branch / PR build locally before it's merged or published — no waiting on a release cycle |
 | **Project home** | Repo lives in the `JUCMNAV/` organization for continuity and multi-maintainer support | Install URL is `jucmnav.github.io/jUCMNavPlus/`; the historical `damyot/jUCMNavPlus` URL auto-redirects but the old Pages host does not — update your Eclipse update site list |
 | **HTML report — modern rendering** | Replaced the 2008-era frameset + browser-side XSLT + jQuery pipeline with a self-contained `index.html` (flexbox sidebar + content iframe) and full diagram names sorted alphabetically | Reports open correctly in current Chrome / Edge / Firefox — the old XSLT silently failed on `file://` and Chrome announced removal of `XSLTProcessor` in 2024. Names like "GRL-Adequate Follow-up" stay intact instead of getting truncated to "up", and the sidebar reads top-to-bottom in a predictable order |
@@ -73,6 +73,8 @@ trail, see [`git log master`](https://github.com/JUCMNAV/jUCMNavPlus/commits/mas
 | **10.0.3 — crash & menu fixes** | Selecting a start/end point with no condition no longer throws (operator-precedence bug in `AddConditionLabelAction`), and action enablement is now refreshed per-action so one failure can't blank a whole context menu; the dynamic-stub condition wizard opens on top of its modal dialog and unchecking a plug-in no longer NPEs; disposed-control guards across the Elements, KPI, Strategies and Dynamic Contexts views | Clicking an end point, closing the workbench, or editing a stub condition no longer fills the error log — and menu items that quietly disappeared, like "Run All Scenarios", are back |
 | **10.0.4 — AND-fork loop crash** | Routing a path that loops back through an AND-fork or AND-join no longer throws `StackOverflowError` — the connection router's spline walk now tracks which splines it has already expanded (a bug open since 2015 as legacy #930) | Draw a loop through an AND-fork, which is legal UCM, and the diagram keeps working instead of filling the error log and becoming unusable |
 | **10.0.5 — large-model performance** | Three quadratic hot spots removed: same-document ID references now resolve through an id map instead of a full model walk per reference; enumeration values are indexed instead of scanned on every variable reference; expression syntax trees are cached instead of re-parsed on every evaluation. Plus: multi-line responsibility and stub names no longer truncate to their first line in the outline and list views, and a fly-out submenu is no longer disposed while Windows still tracks it | A 3.7 MB generated model (30 maps, 1155 scenarios) opens in 10 s instead of 167 s, and running all 1155 scenario definitions takes 28 s instead of not finishing at all |
+
+| **10.0.6 — undo & menu correctness** | Refactor into Stub could never be undone at all: it nests helper commands that are empty when they have no work, and GEF treats an empty compound as un-undoable, which silently blocked the whole refactor — nine further commands carried the same latent flaw. The command stack also advertised an Undo it could not perform, so the action stayed enabled and every press did nothing. Plus: a keyboard shortcut back to the selection tool, the URN Links menu no longer breaks when a link's target is deleted, blank names report as missing rather than "already exists", and two hand-built pop-up menus stop leaking | Undo actually undoes a Refactor into Stub, and greys out honestly when it cannot; pressing Undo repeatedly to no effect is gone |
 
 ## Install
 
