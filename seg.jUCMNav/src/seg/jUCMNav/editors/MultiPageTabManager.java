@@ -136,7 +136,7 @@ public class MultiPageTabManager {
             editor.getDelegatingZoomManager().setCurrentZoomManager(editor.getZoomManager(getCurrentPage().getGraphicalViewer()));
 
             // update delegating command stack
-            editor.getDelegatingCommandStack().setCurrentCommandStack(getCurrentPage().getCommandStack());
+            editor.getDelegatingCommandStack().setCurrentCommandStack(getCurrentPage().getCommandStack(), getCurrentPage().getModel());
 
             IWorkbenchPage page = this.editor.getSite().getPage();
             page.getNavigationHistory().markLocation(this.editor);

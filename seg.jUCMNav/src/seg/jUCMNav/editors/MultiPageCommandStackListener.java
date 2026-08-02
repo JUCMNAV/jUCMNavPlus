@@ -147,7 +147,11 @@ public class MultiPageCommandStackListener implements CommandStackListener, Comm
             // path already flushes on execute, so this is the secondary guard.
             if (!(event.getSource() instanceof DelegatingCommandStack)) {
                 if (detail == CommandStack.POST_EXECUTE)
-                    this.editor.getDelegatingCommandStack().flushURNspecStack();
+                    // Same decision as DelegatingCommandStack.execute() makes: flush unless the
+                    // parked commands provably cannot interact with an edit on this page's
+                    // diagram. Asking here as well as there matters -- an edit reaching a page
+                    // stack directly bypasses the other check entirely.
+                    this.editor.getDelegatingCommandStack().flushURNspecStackUnlessClearOf(diagramEditedBy(event.getSource()));
             }
             else
             {
@@ -168,6 +172,16 @@ public class MultiPageCommandStackListener implements CommandStackListener, Comm
             }
 
         }
+    }
+
+    /** The diagram whose page owns the given command stack, or null if it belongs to no page. */
+    private IURNDiagram diagramEditedBy(Object commandStack) {
+        for (int i = 0; i < this.editor.getPageCount(); i++) {
+            UrnEditor page = (UrnEditor) this.editor.getEditor(i);
+            if (page.getCommandStack() == commandStack)
+                return page.getModel();
+        }
+        return null;
     }
 
     private void removeEditor(IURNDiagram diagramChanged) {

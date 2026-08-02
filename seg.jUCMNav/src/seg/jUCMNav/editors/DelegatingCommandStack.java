@@ -15,7 +15,11 @@
 package seg.jUCMNav.editors;
 
 import java.util.EventObject;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
 
 import org.eclipse.gef.commands.Command;
 import org.eclipse.gef.commands.CommandStack;
@@ -26,6 +30,7 @@ import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.views.contentoutline.IContentOutlinePage;
 
 import seg.jUCMNav.model.commands.IGlobalStackCommand;
+import seg.jUCMNav.model.commands.IScopedGlobalCommand;
 import seg.jUCMNav.model.commands.cutcopypaste.PasteCommand;
 import seg.jUCMNav.views.outline.UrnOutlinePage;
 import urncore.IURNDiagram;
@@ -47,6 +52,25 @@ public class DelegatingCommandStack extends CommandStack implements CommandStack
     /** the current command stack */
     private CommandStack currentCommandStack;
     private IURNDiagram lastAffectedDiagram;
+
+    /** The diagram whose page owns {@link #currentCommandStack}, when the caller told us. */
+    private IURNDiagram currentDiagram;
+
+    /**
+     * Diagrams the parked global commands touched, or null when at least one of them would not say.
+     * Null means "assume everything", which is the safe reading and the historical behaviour.
+     */
+    private Set<IURNDiagram> globallyAffected = null;
+
+    /**
+     * How many commands each page stack has run since the newest global command was parked.
+     *
+     * The two stacks have no shared ordering, and the URN-spec stack is consulted first, so without
+     * this a parked command that outlives an edit would be undone before it -- oldest first, which
+     * is not what Undo means. A page stack with edits newer than the parked command therefore wins
+     * until those are exhausted.
+     */
+    private Map<CommandStack, Integer> editsSincePark = new HashMap<CommandStack, Integer>();
 
     // some of our commands add/delete map don't belong in any of the editor stacks.
     // this stack is only available if the last execute was a DeleteMapCommand or a CreateMapCommand. it is flushed after that.
@@ -86,6 +110,11 @@ public class DelegatingCommandStack extends CommandStack implements CommandStack
      * @see org.eclipse.gef.commands.CommandStack#canUndo()
      */
     public boolean canUndo() {
+        // A newer edit on the current page is undone before the parked command; see
+        // editsSincePark.
+        if (pageHasNewerEdits())
+            return true;
+
         if (stkUrnSpec.getUndoCommand() != null)
             // A command is parked on the URN-spec stack. Undo is available only if that command
             // can actually be undone: this used to answer "yes" merely because the stack was
@@ -145,16 +174,63 @@ public class DelegatingCommandStack extends CommandStack implements CommandStack
             return;
 
         if (null != currentCommandStack) {
-            flushURNspecStack();
+            flushURNspecStackUnlessClearOf(currentDiagram);
             currentCommandStack.execute(command);
+            countEdit(currentCommandStack, 1);
         }
+    }
+
+    /**
+     * Discards the global commands parked on the URN-spec stack, unless they provably cannot
+     * interact with an edit on the given diagram.
+     *
+     * <p>
+     * The parked command is discarded when it could, because undoing a command that spans diagrams
+     * while a page stack holds later commands recorded against the elements it moved would apply
+     * inverse operations to a model that no longer matches them -- the "chart is displayed in
+     * disorder" of legacy projetseg-update#923.
+     *
+     * <p>
+     * That reasoning only applies to the diagrams the parked command actually touched. An edit
+     * anywhere else cannot reach its elements, so discarding the undo there costs the user their
+     * history for nothing. Commands that declare their scope
+     * ({@link seg.jUCMNav.model.commands.IScopedGlobalCommand}) get that distinction drawn; anything
+     * that does not is assumed to affect everything, which is what this always did.
+     */
+    public void flushURNspecStackUnlessClearOf(IURNDiagram edited) {
+        if (couldInteractWith(edited))
+            flushURNspecStack();
+    }
+
+    private boolean couldInteractWith(IURNDiagram edited) {
+        if (stkUrnSpec.getCommands().length == 0)
+            return false;
+
+        // Some parked command would not name its scope, or we do not know which diagram the edit
+        // is for. Either way there is nothing to reason with, so assume the worst.
+        if (globallyAffected == null || edited == null)
+            return true;
+
+        return globallyAffected.contains(edited);
     }
 
     private boolean checkSimpleCommand(Command command) {
 
         if (command instanceof IGlobalStackCommand) {
             lastAffectedDiagram = ((IGlobalStackCommand) command).getAffectedDiagram();
+
+            // Scope accumulates across everything parked at once, and starts fresh when the stack
+            // does. One command that will not declare its scope makes the whole set unknowable.
+            if (stkUrnSpec.getCommands().length == 0)
+                globallyAffected = new HashSet<IURNDiagram>();
+
+            if (globallyAffected != null && command instanceof IScopedGlobalCommand)
+                globallyAffected.addAll(((IScopedGlobalCommand) command).getAffectedDiagrams());
+            else
+                globallyAffected = null;
+
             stkUrnSpec.execute(command);
+            editsSincePark.clear();
             return true;
         }
 
@@ -194,6 +270,25 @@ public class DelegatingCommandStack extends CommandStack implements CommandStack
             stkUrnSpec.flush();
         }
         lastAffectedDiagram = null;
+        globallyAffected = null;
+        editsSincePark.clear();
+    }
+
+    private void countEdit(CommandStack stack, int delta) {
+        Integer current = editsSincePark.get(stack);
+        int updated = (current == null ? 0 : current.intValue()) + delta;
+        if (updated <= 0)
+            editsSincePark.remove(stack);
+        else
+            editsSincePark.put(stack, Integer.valueOf(updated));
+    }
+
+    /**
+     * Whether the current page has edits newer than the parked global command, which must therefore
+     * be undone before it.
+     */
+    private boolean pageHasNewerEdits() {
+        return currentCommandStack != null && editsSincePark.containsKey(currentCommandStack) && currentCommandStack.canUndo();
     }
 
     /*
@@ -247,6 +342,9 @@ public class DelegatingCommandStack extends CommandStack implements CommandStack
      * @see org.eclipse.gef.commands.CommandStack#getUndoCommand()
      */
     public Command getUndoCommand() {
+        if (pageHasNewerEdits())
+            return currentCommandStack.getUndoCommand();
+
         if (stkUrnSpec.getUndoCommand() != null) {
             return stkUrnSpec.getUndoCommand();
         } else {
@@ -332,8 +430,11 @@ public class DelegatingCommandStack extends CommandStack implements CommandStack
 
                 stkUrnSpec.redo();
             } else {
-                if (null != currentCommandStack)
+                if (null != currentCommandStack) {
                     currentCommandStack.redo();
+                    if (stkUrnSpec.getCommands().length > 0)
+                        countEdit(currentCommandStack, 1);
+                }
             }
         } finally {
             tryHookOutlineSelectionSynchronizer();
@@ -347,6 +448,19 @@ public class DelegatingCommandStack extends CommandStack implements CommandStack
      *            the <code>CommandStack</code> to set
      */
     public void setCurrentCommandStack(CommandStack stack) {
+        setCurrentCommandStack(stack, null);
+    }
+
+    /**
+     * As {@link #setCurrentCommandStack(CommandStack)}, but also records which diagram the page
+     * owning this stack is editing.
+     *
+     * Knowing that is what lets an ordinary edit be told apart from one that could interact with a
+     * parked global command; without it every edit is assumed to interact, as it always was.
+     */
+    public void setCurrentCommandStack(CommandStack stack, IURNDiagram diagram) {
+        currentDiagram = diagram;
+
         if (currentCommandStack == stack)
             return;
 
@@ -392,6 +506,12 @@ public class DelegatingCommandStack extends CommandStack implements CommandStack
     public void undo() {
         try {
             tryUnhookOutlineSelectionSynchronizer();
+
+            if (pageHasNewerEdits()) {
+                countEdit(currentCommandStack, -1);
+                currentCommandStack.undo();
+                return;
+            }
 
             if (stkUrnSpec.getUndoCommand() != null) {
                 Command command = stkUrnSpec.getUndoCommand();

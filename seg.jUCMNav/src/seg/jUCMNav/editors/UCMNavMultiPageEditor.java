@@ -432,7 +432,7 @@ public class UCMNavMultiPageEditor extends MultiPageEditorPart implements Adapte
 		if (null == delegatingCommandStack) {
 			delegatingCommandStack = new DelegatingCommandStack();
 			if (null != getCurrentPage())
-				delegatingCommandStack.setCurrentCommandStack(getCurrentPage().getCommandStack());
+				delegatingCommandStack.setCurrentCommandStack(getCurrentPage().getCommandStack(), getCurrentPage().getModel());
 		}
 
 		return delegatingCommandStack;

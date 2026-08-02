@@ -1,13 +1,16 @@
 package seg.jUCMNav.model.commands.transformations;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Vector;
 
 import org.eclipse.gef.commands.CompoundCommand;
 
 import seg.jUCMNav.Messages;
 import seg.jUCMNav.model.ModelCreationFactory;
-import seg.jUCMNav.model.commands.IGlobalStackCommand;
+import seg.jUCMNav.model.commands.IScopedGlobalCommand;
 import seg.jUCMNav.model.commands.create.AddPluginCommand;
 import seg.jUCMNav.model.commands.create.CreateMapCommand;
 import seg.jUCMNav.model.commands.transformations.internal.BindExtractedStubCommand;
@@ -20,12 +23,13 @@ import ucm.map.UCMmap;
 import urn.URNspec;
 import urncore.IURNDiagram;
 
-public class RefactorIntoStubCommand extends CompoundCommand implements ICreateElementCommand, IGlobalStackCommand {
+public class RefactorIntoStubCommand extends CompoundCommand implements ICreateElementCommand, IScopedGlobalCommand {
 
     private Vector startingPoints;
     private URNspec urn;
     private UCMmap addedMap;
     private Stub addedStub;
+    private UCMmap sourceMap;
 
     public RefactorIntoStubCommand(URNspec urn, Vector startingPoints) {
 
@@ -38,6 +42,8 @@ public class RefactorIntoStubCommand extends CompoundCommand implements ICreateE
         StubExtractionScope extraction = new StubExtractionScope(startingPoints);
         if (extraction.isEmpty())
             return;
+
+        sourceMap = extraction.getMap();
 
         // 1. the plug-in map the scope moves onto.
         CreateMapCommand createMap = new CreateMapCommand(urn);
@@ -91,5 +97,22 @@ public class RefactorIntoStubCommand extends CompoundCommand implements ICreateE
 
     public IURNDiagram getAffectedDiagram() {
         return getAddedMap();
+    }
+
+    /**
+     * Exactly two: the map the selection came from, and the plug-in map built out of it.
+     *
+     * Nothing else is read or written. The extraction moves nodes, connections and component
+     * references between those two, and the component <i>definitions</i> it re-references are
+     * shared model elements rather than diagrams -- an edit on a third diagram cannot collide with
+     * any of it, so this command's undo can survive one.
+     */
+    public Collection<IURNDiagram> getAffectedDiagrams() {
+        List<IURNDiagram> affected = new ArrayList<IURNDiagram>();
+        if (sourceMap != null)
+            affected.add(sourceMap);
+        if (getAddedMap() != null)
+            affected.add(getAddedMap());
+        return affected;
     }
 }
