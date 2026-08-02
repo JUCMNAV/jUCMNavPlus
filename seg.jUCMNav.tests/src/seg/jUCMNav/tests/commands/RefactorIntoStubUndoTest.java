@@ -182,7 +182,6 @@ public class RefactorIntoStubUndoTest {
      * stop treating an empty compound as un-undoable), this flips to passing.
      */
     @Test
-    @Ignore("legacy #923: empty nested compounds make RefactorIntoStubCommand.canUndo() false")
     public void refactorReportsThatItCanBeUndone() {
         Vector<RespRef> responsibilities = drawPathWithTwoResponsibilities();
         int diagramsBefore = diagramCount();
@@ -208,7 +207,7 @@ public class RefactorIntoStubUndoTest {
      * stack is undone against a model the refactor had already changed.
      */
     @Test
-    @Ignore("legacy #923: undo after a refactor-into-stub does not restore the model")
+    @Ignore("asserts full restoration, which flushURNspecStack() deliberately prevents; see #28")
     public void undoAfterRefactorAndAnEditRestoresTheModel() {
         Vector<RespRef> responsibilities = drawPathWithTwoResponsibilities();
         int diagramsBeforeRefactor = diagramCount();

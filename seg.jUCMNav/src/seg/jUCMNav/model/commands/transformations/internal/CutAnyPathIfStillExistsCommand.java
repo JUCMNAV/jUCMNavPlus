@@ -29,6 +29,33 @@ public class CutAnyPathIfStillExistsCommand extends CompoundCommand {
         return true;
     }
 
+    /**
+     * An empty compound means there was nothing left to cut, and undoing nothing always succeeds.
+     *
+     * GEF's CompoundCommand returns false from canUndo() when its command list is empty. Because
+     * this command is nested unconditionally -- RefactorIntoStubCommand always adds one, whether
+     * or not there is a path to cut -- that false propagated to the enclosing command, whose
+     * canUndo() then reported false as well. CommandStack.undo() opens with
+     * `if (!canUndo()) return;`, so the whole refactor could never be undone (legacy bug 923,
+     * #28). canExecute() above is overridden for exactly the same reason.
+     */
+    public boolean canUndo() {
+        if (getCommands().isEmpty())
+            return true;
+
+        return super.canUndo();
+    }
+
+    /**
+     * @see #canUndo() -- CompoundCommand.canRedo() has the same empty-list rule.
+     */
+    public boolean canRedo() {
+        if (getCommands().isEmpty())
+            return true;
+
+        return super.canRedo();
+    }
+
     public void execute() {
         if (!built) {
 
