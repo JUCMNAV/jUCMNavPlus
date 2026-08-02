@@ -15,9 +15,9 @@ Classic (diagram editors), and MDT/OCL (constraints).
 tests, and runs on Java 21 LTS + Eclipse 2026-03 (4.39). The full Phase A
 (compile-clean, Tycho build, p2 update site) and Phase B (QA bug hunt:
 SWT leaks, dispose races, thread-affinity issues, GEF generics fallout,
-JDK 21 API drift) are merged. Every push to `master` runs the 350-test
+JDK 21 API drift) are merged. Every push to `master` runs the 401-test
 JUnit suite under a headless Eclipse UI harness as a hard CI gate. The
-current release is **10.0.6**.
+current release is **10.0.7**.
 
 The installable update site is published continuously to GitHub Pages at
 [`https://jucmnav.github.io/jUCMNavPlus/`](https://jucmnav.github.io/jUCMNavPlus/) —
@@ -48,7 +48,7 @@ trail, see [`git log master`](https://github.com/JUCMNAV/jUCMNavPlus/commits/mas
 | **CORE library** | The `ca.mcgill.sel.core` dependency is now vendored in-tree | Builds don't depend on an external university Maven host that could disappear; everything you need to compile and run is in this repo |
 | **EMF model** | The URN / UCM / GRL / FM model code was regenerated from the `.ecore` / `.genmodel` sources using current EMF tooling | Model loading, serialization, and validation run on supported APIs (no JDK-removed methods); future model changes can be regenerated cleanly instead of hand-patched |
 | **Distribution** | One-click p2 update site from GitHub Pages | Paste `https://jucmnav.github.io/jUCMNavPlus/` into Eclipse's Install New Software and you're done — automatic updates via Help → Check for Updates |
-| **Quality gate** | 350 JUnit tests under a headless Eclipse harness, gating every push | Regressions get caught in CI instead of by you mid-presentation |
+| **Quality gate** | 401 JUnit tests under a headless Eclipse harness, gating every push | Regressions get caught in CI instead of by you mid-presentation |
 | **CI / artifacts** | GitHub Actions builds + tests + publishes the update site on every push to `master`; downloadable site artifact on every PR build | You can install a feature-branch / PR build locally before it's merged or published — no waiting on a release cycle |
 | **Project home** | Repo lives in the `JUCMNAV/` organization for continuity and multi-maintainer support | Install URL is `jucmnav.github.io/jUCMNavPlus/`; the historical `damyot/jUCMNavPlus` URL auto-redirects but the old Pages host does not — update your Eclipse update site list |
 | **HTML report — modern rendering** | Replaced the 2008-era frameset + browser-side XSLT + jQuery pipeline with a self-contained `index.html` (flexbox sidebar + content iframe) and full diagram names sorted alphabetically | Reports open correctly in current Chrome / Edge / Firefox — the old XSLT silently failed on `file://` and Chrome announced removal of `XSLTProcessor` in 2024. Names like "GRL-Adequate Follow-up" stay intact instead of getting truncated to "up", and the sidebar reads top-to-bottom in a predictable order |
@@ -74,6 +74,64 @@ trail, see [`git log master`](https://github.com/JUCMNAV/jUCMNavPlus/commits/mas
 | **10.0.4 — AND-fork loop crash** | Routing a path that loops back through an AND-fork or AND-join no longer throws `StackOverflowError` — the connection router's spline walk now tracks which splines it has already expanded (a bug open since 2015 as legacy #930) | Draw a loop through an AND-fork, which is legal UCM, and the diagram keeps working instead of filling the error log and becoming unusable |
 | **10.0.5 — large-model performance** | Three quadratic hot spots removed: same-document ID references now resolve through an id map instead of a full model walk per reference; enumeration values are indexed instead of scanned on every variable reference; expression syntax trees are cached instead of re-parsed on every evaluation. Plus: multi-line responsibility and stub names no longer truncate to their first line in the outline and list views, and a fly-out submenu is no longer disposed while Windows still tracks it | A 3.7 MB generated model (30 maps, 1155 scenarios) opens in 10 s instead of 167 s, and running all 1155 scenario definitions takes 28 s instead of not finishing at all |
 | **10.0.6 — undo & menu correctness** | Refactor into Stub could never be undone at all: it nests helper commands that are empty when they have no work, and GEF treats an empty compound as un-undoable, which silently blocked the whole refactor — nine further commands carried the same latent flaw. The command stack also advertised an Undo it could not perform, so the action stayed enabled and every press did nothing. Plus: a keyboard shortcut back to the selection tool, the URN Links menu no longer breaks when a link's target is deleted, blank names report as missing rather than "already exists", and two hand-built pop-up menus stop leaking | Undo actually undoes a Refactor into Stub, and greys out honestly when it cannot; pressing Undo repeatedly to no effect is gone |
+| **10.0.7 — Refactor into Stub, rebuilt** | The command now computes what it extracts and constructs the result, instead of deleting the selection and assembling a stub from the severed ends left behind. See [below](#refactor-into-stub-rebuilt) | Select a region, get a stub with exactly one path per boundary crossing, a plug-in map that still means what the region meant, and scenarios that run identically before and after |
+
+### Refactor into Stub, rebuilt
+
+Select part of a map, extract it into a stub, and the plug-in map should mean
+exactly what the selection meant. It didn't. The old command deleted the
+selected nodes, let deletion incidentally spawn start and end points wherever
+it had severed a path, then swept the map for "every start/end point newer than
+me" and attached whatever it found to the stub. It could not tell an end it had
+severed *inside* the selection from one on the boundary, so every interior
+severing produced a surplus stub path — and since the two sides of the
+transformation were built by unrelated mechanisms, the stub-to-plug-in bindings
+had to be reconstructed afterwards by matching element names, with a positional
+fallback for when the names didn't line up.
+
+It now computes what it extracts, and constructs the result:
+
+```
+scope = the selection, plus everything lying between two selected nodes
+in    = connections entering the scope        out = connections leaving it
+```
+
+One stub in-path per inbound connection, one out-path per outbound one, each
+paired with the plug-in endpoint that continues it — **by construction**, so
+surplus paths cannot arise and the bindings are known rather than guessed.
+
+| Selection | Before | Now |
+|---|---|---|
+| A whole OR-fork/join block | stub with 3 in-paths and 3 out-paths | **1 and 1** |
+| Just the fork and the join | extracted 2 nodes, plug-in map lost its meaning | **extracts the whole block, 1 and 1** |
+| Anything reaching the start point | stub with **no** way in, and a root map with no start point at all | **the start point stays put and feeds the stub** |
+
+Nodes are **moved, not copied**, so ids, responsibility definitions, metadata
+and history survive. Components come across too: one whose nodes all leave
+moves with them, and one straddling the boundary is *replicated* on the plug-in
+map, because a component definition is meant to have a reference per map it
+appears on. Start and end points never move — a start point is the map's way
+in, and a stub replaces a body, not an entry. An OR-fork's branch guards travel
+with the fork that reads them.
+
+That last pair are not cosmetic. Extracting a start point used to strand any
+scenario anchored on it: the traversal began *inside* the plug-in map, which it
+had never entered through a stub, so on reaching the far end there was nothing
+to return from and everything downstream went unvisited. A guard left behind
+left the moved fork with branches that all evaluate true, and the traversal
+reported "multiple alternatives — taking first option to remain deterministic"
+and quietly ran a different scenario. Both passed every structural check.
+
+Which is why the command is now judged by what a model is *for*. A round-trip
+suite extracts a stub, re-runs every scenario definition, undoes, and runs them
+again, requiring that the same responsibilities execute the same number of
+times with the same warnings at each step — across nine selections on a
+process-mined model with true concurrency, a counted loop, an enumerated
+variant selector and five components. Underneath it, the scope calculation is
+checked exhaustively against all 2,048 subsets of a sample map.
+
+Undo works throughout, and a Refactor into Stub now survives an edit on a map
+it never touched instead of being discarded by it.
 
 ## Install
 
