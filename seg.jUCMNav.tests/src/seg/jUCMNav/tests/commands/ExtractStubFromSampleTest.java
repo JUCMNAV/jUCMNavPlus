@@ -19,11 +19,11 @@ import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.part.FileEditorInput;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import seg.jUCMNav.editors.UCMNavMultiPageEditor;
 import seg.jUCMNav.model.commands.transformations.RefactorIntoStubCommand;
+import seg.jUCMNav.model.util.StubExtractionScope;
 import seg.jUCMNav.views.preferences.DeletePreferences;
 import ucm.map.NodeConnection;
 import ucm.map.PathNode;
@@ -149,8 +149,13 @@ public class ExtractStubFromSampleTest {
     }
 
     private void refactorAndCheck(Set<PathNode> selection, String what) {
-        int expectedIn = inBoundary(selection);
-        int expectedOut = outBoundary(selection);
+        // The stub's paths must equal the boundary of what is actually extracted, which is the
+        // closure of the selection -- everything between its extremities -- not the literal set of
+        // nodes the user clicked. Computing it from StubExtractionScope states that rule rather
+        // than restating one instance of it.
+        StubExtractionScope extracted = new StubExtractionScope(selection);
+        int expectedIn = inBoundary(extracted.getScope());
+        int expectedOut = outBoundary(extracted.getScope());
 
         Vector<Object> arg = new Vector<Object>();
         arg.addAll(selection);
@@ -168,7 +173,6 @@ public class ExtractStubFromSampleTest {
 
     /** The first reported case: select from before the fork to after the join. */
     @Test
-    @Ignore("reproduces the reported extra paths: gives in=3 out=3 where the boundary is 1 and 1; see #29")
     public void extractingTheWholeForkJoinBlockGivesOneInAndOneOut() {
         Set<PathNode> selection = new HashSet<PathNode>();
         String[] ids = { "36", "23", "37", "56", "58", "49", "48" }; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$
@@ -184,9 +188,16 @@ public class ExtractStubFromSampleTest {
         refactorAndCheck(selection, "whole block"); //$NON-NLS-1$
     }
 
-    /** The second reported case: select only the fork and the join. */
+    /**
+     * The second reported case: select only the fork and the join.
+     *
+     * The literal selection has three entries and three exits, but the extraction closes over
+     * everything between the two, so what actually moves is the whole block and the stub gets one
+     * in-path and one out-path. Anything less would leave a stub standing for a block whose
+     * branches stayed on the parent map -- the "plug-in map loses equivalence" half of #29.
+     */
     @Test
-    public void extractingOnlyTheForkAndJoinGivesThreeInAndThreeOut() {
+    public void extractingOnlyTheForkAndJoinExtractsTheWholeBlock() {
         Set<PathNode> selection = new HashSet<PathNode>();
         PathNode fork = node("36"); //$NON-NLS-1$
         PathNode join = node("48"); //$NON-NLS-1$
@@ -194,8 +205,9 @@ public class ExtractStubFromSampleTest {
         selection.add(fork);
         selection.add(join);
 
-        assertEquals("sanity: fork+join alone has three entries", 3, inBoundary(selection)); //$NON-NLS-1$
-        assertEquals("sanity: fork+join alone has three exits", 3, outBoundary(selection)); //$NON-NLS-1$
+        assertEquals("sanity: the literal selection has three entries", 3, inBoundary(selection)); //$NON-NLS-1$
+        assertEquals("sanity: but its closure is the whole block", //$NON-NLS-1$
+                7, new StubExtractionScope(selection).getScope().size());
 
         refactorAndCheck(selection, "fork and join only"); //$NON-NLS-1$
     }

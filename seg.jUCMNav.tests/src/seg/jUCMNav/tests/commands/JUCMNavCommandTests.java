@@ -1644,7 +1644,11 @@ public class JUCMNavCommandTests {
 
 		assertEquals("Should now contain two maps.", urnspec.getUrndef().getSpecDiagrams().size(), 2);//$NON-NLS-1$
 
-		assertTrue("RespRef should have been moved.", this.resp.getDiagram() == null); //$NON-NLS-1$
+		// The refactor now MOVES the selection onto the plug-in map rather than copying it and
+		// deleting the original, so the RespRef survives with its identity and is simply on the
+		// other diagram. It used to be left with a null diagram because the original was deleted.
+		assertEquals("RespRef should have moved to the extracted map.", //$NON-NLS-1$
+				urnspec.getUrndef().getSpecDiagrams().get(1), this.resp.getDiagram());
 		boolean found = false;
 		for (Iterator iterator = ((UCMmap) urnspec.getUrndef().getSpecDiagrams().get(1)).getNodes().iterator(); iterator
 				.hasNext();) {
