@@ -127,7 +127,8 @@ inherited from `JUCMNAV/projetseg-update` (see
 In a fresh session, work the same way the modernization did:
 - Small, single-purpose commits. One root cause per commit.
 - Run `mvn -B clean verify` before any push to `master` — it's a hard
-  gate, not advisory. 319/0/0 must hold.
+  gate, not advisory. Zero failures must hold; the test count grows, so
+  compare against the previous run rather than a number written here.
 - If the user says "test suite is irrelevant for this change" you can
   build with `mvn -B clean package -DskipTests` to iterate faster; re-run
   the full gate before pushing.
