@@ -33,6 +33,44 @@ public class ExportLayoutDOT implements IUseCaseMapExport {
 	 * @param dot
 	 *            where to write the output.
 	 */
+	/**
+	 * Roughly what a GRL intentional element or a feature occupies on screen, in inches, used when
+	 * nothing better is known.
+	 *
+	 * A node whose size is unknown used to be declared 0 x 0, which asks Graphviz to lay out points
+	 * and guarantees that the real figures overlap once they are drawn. A wrong-but-plausible size
+	 * gives a usable diagram; zero cannot.
+	 */
+	private static final double DEFAULT_WIDTH = 1.5;
+	private static final double DEFAULT_HEIGHT = 0.85;
+
+	/**
+	 * A node with its size, from the dimensions harvested off the figures where they were
+	 * available and a sane default where they were not.
+	 */
+	private static String nodeDeclaration(URNmodelElement node) {
+		double width = DEFAULT_WIDTH;
+		double height = DEFAULT_HEIGHT;
+
+		String w = MetadataHelper.getMetaData(node, "_width"); //$NON-NLS-1$
+		String h = MetadataHelper.getMetaData(node, "_height"); //$NON-NLS-1$
+		if (w != null && h != null) {
+			try {
+				double measuredWidth = Double.parseDouble(w) / 72.0;
+				double measuredHeight = Double.parseDouble(h) / 72.0;
+				if (measuredWidth > 0 && measuredHeight > 0) {
+					width = measuredWidth;
+					height = measuredHeight;
+				}
+			} catch (NumberFormatException keepTheDefault) {
+				// metadata written by an older version, or by hand
+			}
+		}
+
+		return AutoLayoutPreferences.URNODEPREFIX + node.getId()
+				+ " [label=\"\", height=\"" + height + "\", width=\"" + width + "\"];\n"; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+	}
+
 	private static void buildCluster(IURNContainerRef contRef, StringBuffer dot) {
 
 		dot.append("subgraph " + AutoLayoutPreferences.CONTAINERPREFIX + ((URNmodelElement) contRef).getId() + " {\r\n"); //$NON-NLS-1$ //$NON-NLS-2$
@@ -46,7 +84,11 @@ public class ExportLayoutDOT implements IUseCaseMapExport {
 		for (int i = 0; i < contRef.getNodes().size(); i++) {
 			URNmodelElement node = (URNmodelElement) contRef.getNodes().get(i);
 
-			dot.append(AutoLayoutPreferences.URNODEPREFIX + node.getId() + " ;\n"); //$NON-NLS-1$
+			// Sized like any other node. Emitting a bare name here gave every element inside an
+			// actor Graphviz's default 0.75 x 0.5 inch ellipse, while a GRL intentional element is
+			// drawn about twice that -- so dot packed them at a spacing they do not fit in and the
+			// boxes overlapped on screen. Actors hold most of a GRL diagram, so this was most of it.
+			dot.append(nodeDeclaration(node));
 		}
 
 		dot.append("} \n"); //$NON-NLS-1$
@@ -81,18 +123,7 @@ public class ExportLayoutDOT implements IUseCaseMapExport {
 			IURNNode node = (IURNNode) diagram.getNodes().get(i);
 			// we only want loose nodes containers
 			if (node.getContRef() == null) {
-
-				double height = 0.0;
-				double width = 0.0;
-
-				if ( MetadataHelper.getMetaData((URNmodelElement)node, "_height") != null && 
-						MetadataHelper.getMetaData((URNmodelElement)node, "_width") != null ){
-					height = Double.valueOf(MetadataHelper.getMetaData((URNmodelElement)node, "_height"));
-					width = Double.valueOf(MetadataHelper.getMetaData((URNmodelElement)node, "_width"));
-				}
-
-				dot.append(AutoLayoutPreferences.URNODEPREFIX + ((URNmodelElement) node).getId() + 
-						"[label=\"\", height=\"" + height/72.0 + "\", width=\"" + width/72.0 + "\"];\n"); //$NON-NLS-1$
+				dot.append(nodeDeclaration((URNmodelElement) node));
 			}
 		}
 

@@ -18,6 +18,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import seg.jUCMNav.importexport.ExportContractedDOT;
+import seg.jUCMNav.importexport.ExportLayoutDOT;
 import seg.jUCMNav.importexport.PlainLayout;
 import seg.jUCMNav.model.util.ChainPlacement;
 import seg.jUCMNav.model.util.UcmPathDecomposition;
@@ -309,6 +310,53 @@ public class AutoLayoutPipelineTest {
         assertTrue("the sample should emit some sized nodes", nodes > 0); //$NON-NLS-1$
     }
 
+    // ------------------------------------------------------------- GRL and feature diagrams
+
+    /**
+     * A GRL graph, including the elements held by an actor, must be sized in the DOT we emit.
+     *
+     * <p>
+     * Elements inside an actor used to be declared as a bare name, giving them Graphviz's default
+     * 0.75 x 0.5 inch ellipse, while a GRL element is drawn about twice that -- so dot spaced them
+     * for figures half their real size and they overlapped once drawn. Actors hold most of a GRL
+     * diagram, and feature diagrams take the same path, so this was most of both.
+     */
+    @Test
+    public void everyGrlElementIsSizedIncludingThoseInsideAnActor() {
+        AutoLayoutPreferences.createPreferences();
+
+        URNspec spec = urn.UrnFactory.eINSTANCE.createURNspec();
+        spec.setUrndef(urncore.UrncoreFactory.eINSTANCE.createURNdefinition());
+        grl.GRLGraph graph = grl.GrlFactory.eINSTANCE.createGRLGraph();
+        ((URNmodelElement) graph).setId("900"); //$NON-NLS-1$
+        spec.getUrndef().getSpecDiagrams().add(graph);
+
+        grl.ActorRef actor = grl.GrlFactory.eINSTANCE.createActorRef();
+        actor.setId("901"); //$NON-NLS-1$
+        actor.setWidth(300);
+        actor.setHeight(200);
+        graph.getContRefs().add(actor);
+
+        grl.IntentionalElementRef inside = grl.GrlFactory.eINSTANCE.createIntentionalElementRef();
+        inside.setId("902"); //$NON-NLS-1$
+        grl.IntentionalElementRef outside = grl.GrlFactory.eINSTANCE.createIntentionalElementRef();
+        outside.setId("903"); //$NON-NLS-1$
+        graph.getNodes().add(inside);
+        graph.getNodes().add(outside);
+        actor.getNodes().add(inside);
+
+        String dot = ExportLayoutDOT.convertURNToDot(graph);
+
+        assertTrue("the element inside the actor must be sized: " + dot, //$NON-NLS-1$
+                dot.indexOf("UrnNode902 [label=\"\", height=") >= 0); //$NON-NLS-1$
+        assertTrue("and so must the one outside: " + dot, //$NON-NLS-1$
+                dot.indexOf("UrnNode903 [label=\"\", height=") >= 0); //$NON-NLS-1$
+
+        // A node of unknown size must never be declared 0x0: that asks dot to lay out points and
+        // guarantees the real figures overlap.
+        assertEquals("no zero-sized node may be emitted: " + dot, -1, dot.indexOf("height=\"0.0\"")); //$NON-NLS-1$ //$NON-NLS-2$
+    }
+
     // ------------------------------------------------------------------------- end to end
 
     /**
@@ -343,6 +391,38 @@ public class AutoLayoutPipelineTest {
         // failure this work exists to end.
         assertEquals("every node of the map must be positioned", //$NON-NLS-1$
                 sampleMap.getNodes().size(), positions.size());
+
+        // Quality, not just completion. Each chain is measured as the spline will see it --
+        // junction, interior, junction -- because that sequence is exactly what BSpline
+        // interpolates, and its spacing and turn angle are what decide whether the drawn path
+        // bulges. Asserting on the geometry keeps the claim honest without anyone looking at it.
+        double worstSpacing = 1.0, worstTurn = 0.0;
+        String worstChain = "none"; //$NON-NLS-1$
+
+        for (Iterator<UcmPathDecomposition.Chain> it = decomposition.getChains().iterator(); it.hasNext();) {
+            UcmPathDecomposition.Chain chain = it.next();
+            if (chain.length() == 0)
+                continue;
+
+            PointList drawn = new PointList();
+            drawn.addPoint(positions.get(chain.getFrom()));
+            for (Iterator<PathNode> n = chain.getInterior().iterator(); n.hasNext();)
+                drawn.addPoint(positions.get(n.next()));
+            drawn.addPoint(positions.get(chain.getTo()));
+
+            double spacing = ChainPlacement.spacingRatio(drawn);
+            double turn = ChainPlacement.sharpestTurn(drawn);
+            if (spacing > worstSpacing) {
+                worstSpacing = spacing;
+                worstChain = ((URNmodelElement) chain.getFrom()).getId() + "->" + ((URNmodelElement) chain.getTo()).getId(); //$NON-NLS-1$
+            }
+            worstTurn = Math.max(worstTurn, turn);
+        }
+
+        // Both bounds are what the placement is built to guarantee; a regression in the routing or
+        // the distribution shows up here rather than in somebody's screenshot.
+        assertTrue("worst spacing ratio " + worstSpacing + " on chain " + worstChain, worstSpacing < 3.0); //$NON-NLS-1$ //$NON-NLS-2$
+        assertTrue("sharpest turn " + worstTurn + " degrees", worstTurn < 90.0); //$NON-NLS-1$ //$NON-NLS-2$
 
         // And no two land on the same pixel, which would mean a chain collapsed.
         java.util.Set<String> seen = new java.util.HashSet<String>();

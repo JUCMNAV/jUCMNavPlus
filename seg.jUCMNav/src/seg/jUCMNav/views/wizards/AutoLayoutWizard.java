@@ -381,20 +381,39 @@ public class AutoLayoutWizard extends Wizard {
         return new int[] { left, top, right, bottom };
     }
 
+    /**
+     * Records how big each element is actually drawn, so Graphviz lays out around the real figures.
+     *
+     * <p>
+     * Reads the editor for <b>this</b> diagram rather than whichever page the workbench happens to
+     * have in front. It used to ask {@code PlatformUI} for the active editor's current page, which
+     * is right only when the diagram being laid out is the one on screen. Importing a model lays
+     * out every page in turn ({@code jUCMNavLoader}), so for all but one of them the sizes came
+     * from the wrong diagram -- and where nothing matched, elements were declared 0 x 0 and packed
+     * at a spacing their figures do not fit in.
+     */
     public void addIntentionalElemRefDimensions() {
-        UCMNavMultiPageEditor multi = (UCMNavMultiPageEditor) PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage().getActiveEditor();
-        Collection<EditPart> editparts = ((UrnEditor) multi.getCurrentPage()).getGraphicalViewer().getEditPartRegistry().values();
+        if (editor == null || editor.getGraphicalViewer() == null)
+            return;
+
+        Collection<EditPart> editparts = editor.getGraphicalViewer().getEditPartRegistry().values();
 
         for (EditPart editPart : new ArrayList<EditPart>(editparts)) {
-            if (editPart instanceof NodeEditPart && editPart instanceof IntentionalElementEditPart) {
-                NodeEditPart nodeEditPart = (NodeEditPart) editPart;
-                int height = nodeEditPart.getFigure().getBounds().height;
-                int width = nodeEditPart.getFigure().getBounds().width;
+            if (!(editPart instanceof NodeEditPart) || !(editPart instanceof IntentionalElementEditPart))
+                continue;
 
-                IURNNode node = (IURNNode) nodeEditPart.getModel();
-                MetadataHelper.addMetaData(node.getDiagram().getUrndefinition().getUrnspec(), (URNmodelElement) node, "_height", String.valueOf(height)); //$NON-NLS-1$
-                MetadataHelper.addMetaData(node.getDiagram().getUrndefinition().getUrnspec(), (URNmodelElement) node, "_width", String.valueOf(width)); //$NON-NLS-1$
-            }
+            NodeEditPart nodeEditPart = (NodeEditPart) editPart;
+            if (nodeEditPart.getFigure() == null || !(nodeEditPart.getModel() instanceof IURNNode))
+                continue;
+
+            int height = nodeEditPart.getFigure().getBounds().height;
+            int width = nodeEditPart.getFigure().getBounds().width;
+            if (height <= 0 || width <= 0)
+                continue; // never recorded: a zero size is worse than the default
+
+            IURNNode node = (IURNNode) nodeEditPart.getModel();
+            MetadataHelper.addMetaData(node.getDiagram().getUrndefinition().getUrnspec(), (URNmodelElement) node, "_height", String.valueOf(height)); //$NON-NLS-1$
+            MetadataHelper.addMetaData(node.getDiagram().getUrndefinition().getUrnspec(), (URNmodelElement) node, "_width", String.valueOf(width)); //$NON-NLS-1$
         }
     }
 }
