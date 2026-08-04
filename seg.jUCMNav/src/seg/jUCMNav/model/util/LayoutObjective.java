@@ -107,6 +107,22 @@ public class LayoutObjective {
         /** Mean gap between consecutive nodes, in units of {@link #NATURAL_SPACING}. */
         public final double spread;
 
+        /**
+         * Path crossings as a fraction of the path segments drawn. 0 is a planar drawing.
+         *
+         * <p>
+         * The fifth term, and not one of the four on issue #30 -- see
+         * {@code docs/auto-layout-objective.md} for why it had to be added. Briefly: nothing in
+         * the other four charges a drawing for one path crossing another, so a solver given the
+         * four alone spends its freedom on crossings and scores beautifully while producing a
+         * tangle. Graphviz had been supplying crossing minimisation silently, and the solver that
+         * replaced it inherited a responsibility nobody had written down.
+         */
+        public final double crossingRate;
+
+        /** How many times the drawn paths properly cross. The count behind {@link #crossingRate}. */
+        public final int crossings;
+
         /** Root-mean-square turn in degrees -- {@link #bending}, in a unit people read. */
         public final double rmsTurnDegrees;
 
@@ -137,12 +153,15 @@ public class LayoutObjective {
         /** How many node-to-node segments went into the spread term. */
         public final int segments;
 
-        Score(double bending, double sprawl, double overlap, double spread, double totalBending, double totalComponentArea,
-                double totalContentArea, double totalOverlapArea, double totalLength, int turns, int components, int boxes, int segments) {
+        Score(double bending, double sprawl, double overlap, double spread, double crossingRate, int crossings, double totalBending,
+                double totalComponentArea, double totalContentArea, double totalOverlapArea, double totalLength, int turns, int components,
+                int boxes, int segments) {
             this.bending = bending;
             this.sprawl = sprawl;
             this.overlap = overlap;
             this.spread = spread;
+            this.crossingRate = crossingRate;
+            this.crossings = crossings;
             this.rmsTurnDegrees = Math.toDegrees(Math.sqrt(bending));
             this.totalBending = totalBending;
             this.totalComponentArea = totalComponentArea;
@@ -164,7 +183,7 @@ public class LayoutObjective {
          * approach 0 for a perfect drawing. It is a quantity to compare, not to interpret.
          */
         public double total(Weights w) {
-            return w.bending * bending + w.sprawl * sprawl + w.overlap * overlap + w.spread * spread;
+            return w.bending * bending + w.sprawl * sprawl + w.overlap * overlap + w.spread * spread + w.crossings * crossingRate;
         }
 
         /** The total under {@link Weights#DEFAULT}. */
@@ -175,11 +194,12 @@ public class LayoutObjective {
         /** One line, for a test or a render sweep to print next to the model's name. */
         public String toString() {
             return String.format(java.util.Locale.US, "bend %.4f (rms %.1f deg over %d) | sprawl %.2f (%.0f/%.0f over %d) " //$NON-NLS-1$
-                    + "| overlap %.4f (%.0f over %d) | spread %.2f (%.0f over %d) | total %.3f", //$NON-NLS-1$
+                    + "| overlap %.4f (%.0f over %d) | spread %.2f (%.0f over %d) | cross %.4f (%d) | total %.3f", //$NON-NLS-1$
                     Double.valueOf(bending), Double.valueOf(rmsTurnDegrees), Integer.valueOf(turns), Double.valueOf(sprawl),
                     Double.valueOf(totalComponentArea), Double.valueOf(totalContentArea), Integer.valueOf(components),
                     Double.valueOf(overlap), Double.valueOf(totalOverlapArea), Integer.valueOf(boxes), Double.valueOf(spread),
-                    Double.valueOf(totalLength), Integer.valueOf(segments), Double.valueOf(total()));
+                    Double.valueOf(totalLength), Integer.valueOf(segments), Double.valueOf(crossingRate), Integer.valueOf(crossings),
+                    Double.valueOf(total()));
         }
     }
 
@@ -208,15 +228,57 @@ public class LayoutObjective {
      */
     public static class Weights {
 
-        public static final Weights DEFAULT = new Weights(1, 1, 1, 1);
+        /**
+         * Each term weighted by the inverse of its own good-to-bad spread.
+         *
+         * <p>
+         * So that a term contributes to the total in proportion to how much it actually
+         * distinguishes drawings, rather than to how large its raw numbers happen to be. The
+         * calibration pair is the hand-drawn issue-tracker sample against the same nodes scattered
+         * over the same rectangle -- the two ends of the range this measure has to cover:
+         *
+         * <pre>
+         *              hand-drawn   scattered   spread   weight = 1/spread
+         *   bending        0.80        5.70       4.90        0.204
+         *   sprawl        15.05       26.27      11.22        0.089
+         *   overlap        0.0050      0.0627     0.0577     17.33
+         *   spread         2.12        9.72       7.60        0.132
+         *   crossings      0.0333      2.4333     2.400       0.417
+         * </pre>
+         *
+         * <p>
+         * Every figure above is measured, including the crossing row -- 1 crossing in the
+         * hand-drawn map against 73 in the scattered one. An earlier draft of this table carried a
+         * guessed crossing spread that was off by a factor of ten, which would have made the term
+         * ten times too strong. The whole point of the exercise recorded in
+         * {@code docs/auto-layout-objective.md} is that guessed numbers in an objective do not stay
+         * harmless.
+         *
+         * <p>
+         * All 1 was not a neutral choice, which is why this exists: at unit weights sprawl was
+         * about 85% of the total while discriminating least of the five, so the scalar was very
+         * nearly a report on component boxes alone and anything tuned against it was tuned against
+         * those. Under this calibration each term moves the total by roughly 1.0 across the full
+         * range of drawing quality, and the five are commensurable.
+         *
+         * <p>
+         * Still a calibration and not a truth: it says each term should matter equally, which is a
+         * choice nobody has justified from how these diagrams are actually read. It is a defensible
+         * starting point rather than a finished answer.
+         */
+        public static final Weights DEFAULT = new Weights(0.204, 0.089, 17.33, 0.132, 0.417);
 
-        public final double bending, sprawl, overlap, spread;
+        /** All terms equal, which is what the objective on issue #30 literally says. */
+        public static final Weights UNIT = new Weights(1, 1, 1, 1, 1);
 
-        public Weights(double bending, double sprawl, double overlap, double spread) {
+        public final double bending, sprawl, overlap, spread, crossings;
+
+        public Weights(double bending, double sprawl, double overlap, double spread, double crossings) {
             this.bending = bending;
             this.sprawl = sprawl;
             this.overlap = overlap;
             this.spread = spread;
+            this.crossings = crossings;
         }
     }
 
@@ -243,7 +305,7 @@ public class LayoutObjective {
             int margin) {
 
         if (positions == null || positions.isEmpty())
-            return new Score(0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+            return new Score(0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
         List<PointList> routes = routesOf(decomposition, positions);
 
@@ -309,8 +371,13 @@ public class LayoutObjective {
         double bending = turns > 0 ? totalBending / turns : 0.0;
         double spread = segments > 0 ? totalLength / segments / NATURAL_SPACING : 0.0;
 
-        return new Score(bending, sprawl, overlap, spread, totalBending, totalComponentArea, totalContentArea, totalOverlapArea, totalLength,
-                turns, componentBoxes == null ? 0 : componentBoxes.size(), nodeBoxes == null ? 0 : nodeBoxes.size(), segments);
+        // Per segment drawn, so a big map is not judged worse for having more chances to cross.
+        int crossings = crossings(routes);
+        double crossingRate = segments > 0 ? (double) crossings / segments : 0.0;
+
+        return new Score(bending, sprawl, overlap, spread, crossingRate, crossings, totalBending, totalComponentArea, totalContentArea,
+                totalOverlapArea, totalLength, turns, componentBoxes == null ? 0 : componentBoxes.size(),
+                nodeBoxes == null ? 0 : nodeBoxes.size(), segments);
     }
 
     /**
@@ -492,9 +559,9 @@ public class LayoutObjective {
      * charges it for. Graphviz's crossing minimisation had been quietly supplying this all along.
      *
      * <p>
-     * Reported but deliberately <b>not</b> folded into {@link Score#total} -- it is a count rather
-     * than an area or an angle, so a weight for it means nothing until the other four are
-     * calibrated. Compare it directly instead; it is the number that decides readability.
+     * {@link Score#crossingRate} folds this into the total, per segment drawn so that a large map
+     * is not judged worse merely for having more chances to cross. The raw count stays available
+     * because it is the number a person actually recognises in a drawing.
      */
     public static int crossings(List<PointList> routes) {
         int count = 0;

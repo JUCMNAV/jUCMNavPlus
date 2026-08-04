@@ -100,6 +100,10 @@ public class ConstrainedPlacement {
     private static final double SEPARATE = 0.60;
     private static final double EJECT = 0.50;
     private static final double FLOW = 0.30;
+    private static final double CLEAR = 0.35;
+
+    /** How much room a chain's interior node wants from anything it does not belong to, in pixels. */
+    private static final double CLEARANCE = 55.0;
 
     /**
      * How much of a chain's length must be forward progress before the flow force lets go.
@@ -178,6 +182,33 @@ public class ConstrainedPlacement {
         int[][] corners = cornersOf(decomposition, index);
         List<int[]> groups = groupsOf(nodes, index);
 
+        // Where each chain's interior nodes fall along its run, as fractions. n interior nodes make
+        // n+1 gaps, so they sit at 1/(n+1), 2/(n+1) ... -- the same places ChainPlacement will put
+        // them, which is what makes pushing on them here mean anything.
+        List<int[]> chainList = new ArrayList<int[]>();
+        List<double[]> offsetList = new ArrayList<double[]>();
+        List<Dimension[]> interiorSizeList = new ArrayList<Dimension[]>();
+        for (Iterator<UcmPathDecomposition.Chain> it = decomposition.getChains().iterator(); it.hasNext();) {
+            UcmPathDecomposition.Chain chain = it.next();
+            Integer a = index.get(chain.getFrom()), b = index.get(chain.getTo());
+            if (a == null || b == null || a.equals(b) || chain.length() == 0)
+                continue;
+
+            double[] fractions = new double[chain.length()];
+            Dimension[] extents = new Dimension[chain.length()];
+            for (int i = 0; i < fractions.length; i++) {
+                fractions[i] = (i + 1.0) / (chain.length() + 1.0);
+                extents[i] = extent(sizes, chain.getInterior().get(i));
+            }
+
+            chainList.add(new int[] { a.intValue(), b.intValue() });
+            offsetList.add(fractions);
+            interiorSizeList.add(extents);
+        }
+        int[][] chains = chainList.toArray(new int[chainList.size()][]);
+        double[][] offsets = offsetList.toArray(new double[offsetList.size()][]);
+        Dimension[][] interiorSizes = interiorSizeList.toArray(new Dimension[interiorSizeList.size()][]);
+
         double[] dx = new double[n], dy = new double[n];
 
         for (int pass = 0; pass < ITERATIONS; pass++) {
@@ -191,6 +222,7 @@ public class ConstrainedPlacement {
             applyStraightening(corners, x, y, dx, dy);
             applyCohesion(groups, x, y, dx, dy);
             applyRepulsion(nodes, sizes, x, y, dx, dy);
+            applyChainClearance(chains, offsets, interiorSizes, nodes, sizes, x, y, dx, dy);
             applySeparation(groups, nodes, sizes, margin, x, y, dx, dy);
             applyEjection(groups, nodes, sizes, margin, x, y, dx, dy);
 
@@ -335,6 +367,146 @@ public class ConstrainedPlacement {
             dx[b] -= vx * pull;
             dy[b] -= vy * pull;
         }
+    }
+
+    /**
+     * Keeps a chain's interior clear of other chains and of junctions it does not belong to.
+     *
+     * <p>
+     * The solver moves junctions; a chain's interior is derived from them afterwards. So nothing
+     * was keeping interiors off anything, and the objective counts them: label overlap came out at
+     * 0.053 against 0.005 for the hand-drawn map and 0.063 for nodes scattered at random -- which
+     * is to say the interiors were colliding almost as badly as if they had been thrown down
+     * anywhere. Visibly, two chains ran along the same line with one drawn on top of the other.
+     *
+     * <p>
+     * Since the interior sits at a known fraction along the run between two junctions, a push on an
+     * interior is a push on those two junctions, shared in proportion to how near it is to each.
+     * The interiors stay derived; they simply get a say.
+     */
+    private static void applyChainClearance(int[][] chains, double[][] offsets, Dimension[][] interiorSizes, List<IURNNode> nodes,
+            Map<IURNNode, Dimension> sizes, double[] x, double[] y, double[] dx, double[] dy) {
+
+        // Interior against interior, first and separately. Two chains that share a junction are
+        // excluded from the run-against-run test below, since meeting at a junction is not a
+        // collision -- but their interiors, away from that junction, still are, and on the sample
+        // that is where two of the three remaining overlaps were.
+        for (int a = 0; a < chains.length; a++) {
+            for (int t = 0; t < offsets[a].length; t++) {
+                double fa = offsets[a][t];
+                double ax = x[chains[a][0]] + (x[chains[a][1]] - x[chains[a][0]]) * fa;
+                double ay = y[chains[a][0]] + (y[chains[a][1]] - y[chains[a][0]]) * fa;
+
+                for (int b = a; b < chains.length; b++) {
+                    for (int u = (b == a ? t + 1 : 0); u < offsets[b].length; u++) {
+                        double fb = offsets[b][u];
+                        double bx = x[chains[b][0]] + (x[chains[b][1]] - x[chains[b][0]]) * fb;
+                        double by = y[chains[b][0]] + (y[chains[b][1]] - y[chains[b][0]]) * fb;
+
+                        double wantX = (interiorSizes[a][t].width + interiorSizes[b][u].width) / 2.0;
+                        double wantY = (interiorSizes[a][t].height + interiorSizes[b][u].height) / 2.0;
+                        double overX = wantX - Math.abs(ax - bx), overY = wantY - Math.abs(ay - by);
+                        if (overX <= 0 || overY <= 0)
+                            continue;
+
+                        double sx = 0, sy = 0;
+                        if (overX <= overY)
+                            sx = CLEAR * overX * (ax <= bx ? -1 : 1);
+                        else
+                            sy = CLEAR * overY * (ay <= by ? -1 : 1);
+
+                        share(dx, dy, chains[a], fa, sx / 2, sy / 2);
+                        share(dx, dy, chains[b], fb, -sx / 2, -sy / 2);
+                    }
+                }
+            }
+        }
+
+        for (int a = 0; a < chains.length; a++) {
+            int a0 = chains[a][0], a1 = chains[a][1];
+
+            for (int t = 0; t < offsets[a].length; t++) {
+                double f = offsets[a][t];
+                double px = x[a0] + (x[a1] - x[a0]) * f, py = y[a0] + (y[a1] - y[a0]) * f;
+
+                // Against every other chain's run.
+                for (int b = 0; b < chains.length; b++) {
+                    int b0 = chains[b][0], b1 = chains[b][1];
+                    if (b == a || b0 == a0 || b0 == a1 || b1 == a0 || b1 == a1)
+                        continue; // sharing a junction means meeting, not colliding
+
+                    double[] near = closestOnSegment(px, py, x[b0], y[b0], x[b1], y[b1]);
+                    double vx = px - near[0], vy = py - near[1];
+                    double d = Math.hypot(vx, vy);
+                    if (d >= CLEARANCE)
+                        continue;
+
+                    if (d < EPSILON) {
+                        vx = -(y[b1] - y[b0]);
+                        vy = x[b1] - x[b0];
+                        d = Math.hypot(vx, vy);
+                        if (d < EPSILON)
+                            continue;
+                    }
+
+                    double push = CLEAR * (CLEARANCE - d) / d;
+                    double sx = vx * push, sy = vy * push;
+
+                    // Half to the chain being pushed, half back to the one doing the pushing.
+                    dx[a0] += sx * (1 - f) / 2;
+                    dy[a0] += sy * (1 - f) / 2;
+                    dx[a1] += sx * f / 2;
+                    dy[a1] += sy * f / 2;
+
+                    double g = near[2];
+                    dx[b0] -= sx * (1 - g) / 2;
+                    dy[b0] -= sy * (1 - g) / 2;
+                    dx[b1] -= sx * g / 2;
+                    dy[b1] -= sy * g / 2;
+                }
+
+                // And against junctions it has no business sitting on.
+                for (int j = 0; j < nodes.size(); j++) {
+                    if (j == a0 || j == a1)
+                        continue;
+
+                    Dimension size = extent(sizes, nodes.get(j));
+                    double wanted = Math.max(CLEARANCE, (size.width + size.height) / 4.0);
+                    double vx = px - x[j], vy = py - y[j];
+                    double d = Math.hypot(vx, vy);
+                    if (d >= wanted || d < EPSILON)
+                        continue;
+
+                    double push = CLEAR * (wanted - d) / d;
+                    dx[a0] += vx * push * (1 - f) / 2;
+                    dy[a0] += vy * push * (1 - f) / 2;
+                    dx[a1] += vx * push * f / 2;
+                    dy[a1] += vy * push * f / 2;
+                    dx[j] -= vx * push / 2;
+                    dy[j] -= vy * push / 2;
+                }
+            }
+        }
+    }
+
+    /** A push on a point at fraction {@code f} along a chain, shared between its two junctions. */
+    private static void share(double[] dx, double[] dy, int[] chain, double f, double byX, double byY) {
+        dx[chain[0]] += byX * (1 - f);
+        dy[chain[0]] += byY * (1 - f);
+        dx[chain[1]] += byX * f;
+        dy[chain[1]] += byY * f;
+    }
+
+    /** The point on segment (bx0,by0)-(bx1,by1) nearest (px,py), as {x, y, parameter}. */
+    private static double[] closestOnSegment(double px, double py, double bx0, double by0, double bx1, double by1) {
+        double vx = bx1 - bx0, vy = by1 - by0;
+        double len2 = vx * vx + vy * vy;
+        if (len2 < EPSILON)
+            return new double[] { bx0, by0, 0 };
+
+        double t = ((px - bx0) * vx + (py - by0) * vy) / len2;
+        t = Math.max(0, Math.min(1, t));
+        return new double[] { bx0 + t * vx, by0 + t * vy, t };
     }
 
     /**
