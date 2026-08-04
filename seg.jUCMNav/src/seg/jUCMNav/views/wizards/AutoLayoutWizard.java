@@ -20,6 +20,7 @@ import org.eclipse.core.runtime.Status;
 import org.eclipse.draw2d.geometry.Dimension;
 import org.eclipse.draw2d.geometry.Point;
 import org.eclipse.draw2d.geometry.PointList;
+import org.eclipse.draw2d.geometry.Rectangle;
 import org.eclipse.gef.EditPart;
 import org.eclipse.gef.NodeEditPart;
 import org.eclipse.gef.commands.CompoundCommand;
@@ -43,6 +44,7 @@ import seg.jUCMNav.model.util.AutoLayoutCommandComparator;
 import seg.jUCMNav.model.util.ChainPlacement;
 import seg.jUCMNav.model.util.ComponentSeparation;
 import seg.jUCMNav.model.util.MetadataHelper;
+import seg.jUCMNav.model.util.PathDetour;
 import seg.jUCMNav.model.util.SwimlaneBands;
 import seg.jUCMNav.model.util.UcmPathDecomposition;
 import seg.jUCMNav.views.preferences.AutoLayoutPreferences;
@@ -88,6 +90,9 @@ public class AutoLayoutWizard extends Wizard {
 
     /** Assumed extent of a node whose figure size was never recorded -- a UCM path node is small. */
     private static final int DEFAULT_NODE_EXTENT = 30;
+
+    /** Fewest interior nodes a chain needs before a detour can be spread evenly across it. */
+    private static final int DETOUR_MIN_NODES = 4;
 
     public AutoLayoutWizard(UrnEditor editor, IURNDiagram map) {
         this.diagram = map;
@@ -287,6 +292,12 @@ public class AutoLayoutWizard extends Wizard {
                 positions.put(pn, toDiagram(placed.x, placed.y, layout));
         }
 
+        // Components are separated before the chains are routed, not after, so the routes can be
+        // taken round the boxes in their final places. Only the junctions exist at this point,
+        // which is all a component's rectangle is made of anyway.
+        ComponentSeparation.apply(positions, extentsOf(positions), COMPONENT_MARGIN);
+        Map<Object, Rectangle> boxes = componentBoxes(positions);
+
         for (Iterator<UcmPathDecomposition.Chain> it = decomposition.getChains().iterator(); it.hasNext();) {
             UcmPathDecomposition.Chain chain = it.next();
             if (chain.length() == 0)
@@ -297,7 +308,18 @@ public class AutoLayoutWizard extends Wizard {
             if (from == null || to == null)
                 continue;
 
-            PointList spread = ChainPlacement.distribute(routeOf(chain, layout, from, to), chain.length());
+            // A chain belongs to no component -- its interior is empty points and plain nodes --
+            // so any component box it crosses is one it has no business being inside. Route round
+            // rather than move the component: the bend points are free, and moving a component
+            // disturbs everything already placed around it.
+            // Only a chain with nodes to spare can absorb a detour. Bending a two-node chain round
+            // a component stretches one gap and squeezes the other, and an interpolating spline
+            // through unevenly spaced points overshoots -- the very thing the placement exists to
+            // avoid. Measured: spacing ratio 7.1 against a bound of 3.
+            List<Rectangle> obstacles = chain.length() >= DETOUR_MIN_NODES
+                    ? new ArrayList<Rectangle>(boxes.values()) : new ArrayList<Rectangle>();
+            PointList spread = ChainPlacement.distribute(
+                    detour(routeOf(chain, layout, from, to), obstacles), chain.length());
             List<PathNode> interior = chain.getInterior();
             for (int i = 0; i < interior.size() && i < spread.size(); i++)
                 positions.put(interior.get(i), spread.getPoint(i));
@@ -310,6 +332,54 @@ public class AutoLayoutWizard extends Wizard {
         if ("true".equals(System.getProperty("jucmnav.layout.swimlanes", "false")))
             return SwimlaneBands.apply(positions);
         return positions;
+    }
+
+
+    /** The rectangle each outermost component occupies, given where its nodes are. */
+    private static Map<Object, Rectangle> componentBoxes(Map<IURNNode, Point> positions) {
+        Map<IURNNode, Dimension> extents = extentsOf(positions);
+        Map<Object, Rectangle> boxes = new HashMap<Object, Rectangle>();
+
+        for (Iterator<IURNNode> it = positions.keySet().iterator(); it.hasNext();) {
+            IURNNode node = it.next();
+            IURNContainerRef ref = node.getContRef();
+            if (ref == null)
+                continue;
+            while (ref.getParent() != null)
+                ref = ref.getParent();
+
+            Point at = positions.get(node);
+            Dimension size = extents.get(node);
+            int halfWidth = size == null ? 0 : size.width / 2;
+            int halfHeight = size == null ? 0 : size.height / 2;
+            Rectangle here = new Rectangle(at.x - halfWidth - COMPONENT_MARGIN, at.y - halfHeight - COMPONENT_MARGIN,
+                    2 * (halfWidth + COMPONENT_MARGIN), 2 * (halfHeight + COMPONENT_MARGIN));
+
+            Rectangle grown = boxes.get(ref);
+            boxes.put(ref, grown == null ? here : grown.union(here));
+        }
+        return boxes;
+    }
+
+    /** Inserts bend waypoints wherever a route would cross a component it does not belong to. */
+    private static PointList detour(PointList route, List<Rectangle> obstacles) {
+        if (route.size() < 2 || obstacles.isEmpty())
+            return route;
+
+        PointList detoured = new PointList();
+        detoured.addPoint(route.getPoint(0));
+
+        for (int i = 1; i < route.size(); i++) {
+            Point a = route.getPoint(i - 1);
+            Point b = route.getPoint(i);
+
+            PointList waypoints = PathDetour.around(a, b, obstacles);
+            for (int w = 0; w < waypoints.size(); w++)
+                detoured.addPoint(waypoints.getPoint(w));
+
+            detoured.addPoint(b);
+        }
+        return detoured;
     }
 
     /**
