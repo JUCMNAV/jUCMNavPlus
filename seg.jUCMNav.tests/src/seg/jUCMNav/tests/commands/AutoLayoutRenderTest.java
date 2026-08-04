@@ -248,8 +248,15 @@ public class AutoLayoutRenderTest {
             String fileName = models[m].getName();
             if (!fileName.endsWith(".jucm")) //$NON-NLS-1$
                 continue;
-            if (only != null && !fileName.startsWith(only))
-                continue;
+            // Comma-separated prefixes, so a sweep can name the models it cares about.
+            if (only != null) {
+                boolean wanted = false;
+                String[] prefixes = only.split(","); //$NON-NLS-1$
+                for (int w = 0; w < prefixes.length; w++)
+                    wanted |= fileName.startsWith(prefixes[w].trim());
+                if (!wanted)
+                    continue;
+            }
 
             IFile file = project.getFile(fileName);
             if (file.exists())
