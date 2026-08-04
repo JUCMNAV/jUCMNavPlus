@@ -108,10 +108,20 @@ public class ComponentSeparation {
                 }
             }
 
-            // A node in no component must not be drawn inside one: it would appear bound to it.
-            // The node moves rather than the component, being the cheaper correction.
+            // A node in no component is pushed out of one only when its containment would mean
+            // something. For a responsibility or a path end it does: drawn inside a component, it
+            // reads as performed by it. For a fork, a join, an empty point or a direction arrow it
+            // does not -- those carry no binding worth the name, so they may lie inside a component
+            // or outside it without changing what the map says.
+            //
+            // That distinction is most of the room the layout has. Treating every unbound node as
+            // untouchable forced the path to dive away from every component it passed, which is
+            // what made the drawing lurch; letting the shape-only nodes lie where they fall lets a
+            // path run through a component instead of around it.
             for (int f = 0; f < free.size(); f++) {
                 IURNNode node = free.get(f);
+                if (!bindingIsMeaningful(node))
+                    continue;
                 Rectangle nodeBox = box(java.util.Collections.singletonList(node), positions, sizes, 0);
 
                 for (int i = 0; i < boxes.size(); i++) {
@@ -189,6 +199,20 @@ public class ComponentSeparation {
             if (at != null)
                 positions.put(nodes.get(i), new Point(at.x + dx, at.y + dy));
         }
+    }
+
+    /**
+     * Whether it matters which component this node is drawn inside.
+     *
+     * <p>
+     * A responsibility is performed by a component, and a start or end point belongs to one, so
+     * drawing them inside the wrong box says something false. A fork, a join, an empty point or a
+     * direction arrow is pure shape -- it marks where a path branches or bends, not who does the
+     * work -- so its position relative to a component boundary asserts nothing.
+     */
+    public static boolean bindingIsMeaningful(IURNNode node) {
+        return !(node instanceof ucm.map.EmptyPoint || node instanceof ucm.map.OrFork || node instanceof ucm.map.AndFork
+                || node instanceof ucm.map.OrJoin || node instanceof ucm.map.AndJoin || node instanceof ucm.map.DirectionArrow);
     }
 
     /** The outermost container holding this node, or null when it is in none. */

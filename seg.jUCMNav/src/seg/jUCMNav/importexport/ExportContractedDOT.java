@@ -66,7 +66,11 @@ public class ExportContractedDOT {
         // the chain interiors would inherit the corners instead of curving around them.
         dot.append("splines=\"spline\";\nnodesep=\"0.6\";\nranksep=\"0.6\";\n"); //$NON-NLS-1$
 
-        boolean clusters = !"false".equals(System.getProperty("jucmnav.layout.clusters", "true"));
+        // Off by default: nodes are placed freely by topology and the component boxes those
+        // placements imply are pushed apart afterwards by ComponentSeparation. A cluster would
+        // additionally pack a component's members into adjacent ranks, which URN does not require
+        // and which is what tangled the path.
+        boolean clusters = "true".equals(System.getProperty("jucmnav.layout.clusters", "false")); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
         if (clusters) {
             for (Iterator<?> it = map.getContRefs().iterator(); it.hasNext();) {
                 urncore.IURNContainerRef ref = (urncore.IURNContainerRef) it.next();

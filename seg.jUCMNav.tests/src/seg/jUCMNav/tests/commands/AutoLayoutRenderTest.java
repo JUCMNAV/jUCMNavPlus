@@ -131,7 +131,11 @@ public class AutoLayoutRenderTest {
         org.junit.Assume.assumeTrue("Graphviz not installed; nothing to render", dot != null); //$NON-NLS-1$
 
         UcmPathDecomposition decomposition = new UcmPathDecomposition((UCMmap) diagram);
-        String plain = wizard.autoLayoutDotString(ExportContractedDOT.convert((UCMmap) diagram, decomposition));
+        String source = ExportContractedDOT.convert((UCMmap) diagram, decomposition);
+        System.out.println("[dot in] orientation preference = " + AutoLayoutPreferences.getOrientation());
+        System.out.println("[dot in] " + source.substring(0, Math.min(400, source.length())).replace((char) 10, (char) 32));
+        String plain = wizard.autoLayoutDotString(source);
+        System.out.println("[dot out] " + plain.substring(0, Math.min(160, plain.length())).replace((char) 10, (char) 32));
         assertTrue("Graphviz produced no output", plain.length() > 0); //$NON-NLS-1$
 
         CompoundCommand cmd = AutoLayoutWizard.commandsFor(diagram,

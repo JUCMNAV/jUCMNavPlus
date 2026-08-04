@@ -273,7 +273,11 @@ public class AutoLayoutPipelineTest {
         assertTrue("a loop back edge must not constrain the ranking", dot.indexOf("constraint=\"false\"") >= 0); //$NON-NLS-1$ //$NON-NLS-2$
 
         // The sample's components all hold junctions, so none of them needs a placeholder at all.
-        assertTrue("components are 2-D boxes, emitted as clusters", dot.indexOf("cluster") >= 0); //$NON-NLS-1$
+        // Components are placed freely and separated afterwards, so no cluster is asked for.
+        // A cluster would also pack a component's members into adjacent ranks, which URN does not
+        // require. This assertion has flipped twice with the design; what makes it stable is that
+        // it states the DOT we send, and ComponentSeparation is what keeps components apart.
+        assertEquals("components are separated after placement, not clustered during it", -1, dot.indexOf("cluster")); //$NON-NLS-1$
     }
 
     /**
