@@ -483,6 +483,54 @@ public class LayoutObjective {
     // ------------------------------------------------------------------------------ arithmetic
 
     /**
+     * How many times the drawn paths cross each other.
+     *
+     * <p>
+     * Not one of the four terms on issue #30, and the omission turned out to matter: a solver that
+     * optimises only those four can beat the hand-drawn map on every one of them and still produce
+     * a drawing nobody can follow, because it spends the freedom it gains on crossings that no term
+     * charges it for. Graphviz's crossing minimisation had been quietly supplying this all along.
+     *
+     * <p>
+     * Reported but deliberately <b>not</b> folded into {@link Score#total} -- it is a count rather
+     * than an area or an angle, so a weight for it means nothing until the other four are
+     * calibrated. Compare it directly instead; it is the number that decides readability.
+     */
+    public static int crossings(List<PointList> routes) {
+        int count = 0;
+        if (routes == null)
+            return 0;
+
+        for (int i = 0; i < routes.size(); i++) {
+            for (int j = i; j < routes.size(); j++) {
+                PointList a = routes.get(i), b = routes.get(j);
+                for (int s = 1; s < a.size(); s++) {
+                    // Within one route, only non-adjacent segments can cross; consecutive ones
+                    // merely meet at the node between them.
+                    for (int t = (i == j ? s + 2 : 1); t < b.size(); t++)
+                        if (crosses(a.getPoint(s - 1), a.getPoint(s), b.getPoint(t - 1), b.getPoint(t)))
+                            count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    /** Whether two segments properly cross. Sharing an endpoint is meeting, not crossing. */
+    private static boolean crosses(Point p1, Point p2, Point p3, Point p4) {
+        if (p1.equals(p3) || p1.equals(p4) || p2.equals(p3) || p2.equals(p4))
+            return false;
+
+        double d1 = side(p3, p4, p1), d2 = side(p3, p4, p2), d3 = side(p1, p2, p3), d4 = side(p1, p2, p4);
+        return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
+    }
+
+    /** Which side of the line a-b the point c lies on. */
+    private static double side(Point a, Point b, Point c) {
+        return (double) (b.x - a.x) * (c.y - a.y) - (double) (b.y - a.y) * (c.x - a.x);
+    }
+
+    /**
      * How much two rectangles share, in square pixels; 0 when they do not meet.
      *
      * <p>

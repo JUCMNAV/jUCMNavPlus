@@ -44,6 +44,8 @@ import seg.jUCMNav.model.commands.changeConstraints.SetConstraintContainerRefCom
 import seg.jUCMNav.model.util.AutoLayoutCommandComparator;
 import seg.jUCMNav.model.util.ChainPlacement;
 import seg.jUCMNav.model.util.ComponentSeparation;
+import seg.jUCMNav.model.util.ConstrainedPlacement;
+import seg.jUCMNav.model.util.LabelExtent;
 import seg.jUCMNav.model.util.MetadataHelper;
 import seg.jUCMNav.model.util.PathDetour;
 import seg.jUCMNav.model.util.SwimlaneBands;
@@ -293,6 +295,17 @@ public class AutoLayoutWizard extends Wizard {
                 positions.put(pn, toDiagram(placed.x, placed.y, layout));
         }
 
+        // One constrained placement, rather than four passes each undoing part of the last. Only
+        // the junctions are solved for -- every component member is one, and a chain's interior is
+        // derived from the run between its two junctions -- so this is a fifteen-point problem.
+        // See ConstrainedPlacement, and issue #30 for what it replaces.
+        if (!"true".equals(System.getProperty("jucmnav.layout.passes"))) { //$NON-NLS-1$ //$NON-NLS-2$
+            ConstrainedPlacement.solve(decomposition, positions, visualExtentsOf(positions), COMPONENT_MARGIN);
+            return ConstrainedPlacement.placeChainInteriors(decomposition, positions);
+        }
+
+        // The four-pass pipeline, kept behind a flag for one release so the two can be compared on
+        // real models rather than on the sample alone. It goes when the sweep says it should.
         // Components are separated before the chains are routed, not after, so the routes can be
         // taken round the boxes in their final places. Only the junctions exist at this point,
         // which is all a component's rectangle is made of anyway.
@@ -526,6 +539,22 @@ public class AutoLayoutWizard extends Wizard {
      * intentional element is drawn around 150x85; a box taken from centres alone is far too small,
      * and the actor then does not visually contain the elements bound to it.
      */
+    /**
+     * Node extents including their labels -- what actually occupies room in the drawing.
+     *
+     * A label is part of what an element takes up, and the placement has to keep labels off each
+     * other and off the path just as much as figures. Erring generous costs a little whitespace;
+     * erring mean costs a collision.
+     */
+    private static Map<IURNNode, Dimension> visualExtentsOf(Map<IURNNode, Point> positions) {
+        Map<IURNNode, Dimension> sizes = extentsOf(positions);
+        for (Iterator<Map.Entry<IURNNode, Dimension>> it = sizes.entrySet().iterator(); it.hasNext();) {
+            Map.Entry<IURNNode, Dimension> entry = it.next();
+            entry.setValue(LabelExtent.including((URNmodelElement) entry.getKey(), entry.getValue()));
+        }
+        return sizes;
+    }
+
     private static Map<IURNNode, Dimension> extentsOf(Map<IURNNode, Point> positions) {
         Map<IURNNode, Dimension> sizes = new HashMap<IURNNode, Dimension>();
 
