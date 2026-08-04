@@ -123,8 +123,19 @@ public class AutoLayoutRenderTest {
 
     /** Applies the real auto-layout pipeline to the map currently shown. */
     private void layoutCurrentPage() throws Exception {
+        layout(((UrnEditor) editor.getCurrentPage()).getModel());
+    }
+
+    /**
+     * Lays out the diagram given, rather than whichever page the editor considers current.
+     *
+     * Those are not always the same: setActivePage does not reliably switch in the headless
+     * harness, so the demo sweep was laying out one map while believing it was laying out another.
+     * That is how an empty map (SPS "VM", zero nodes) came to look like auto-layout failing on
+     * SimpleConnection, which has sixteen.
+     */
+    private void layout(IURNDiagram diagram) throws Exception {
         UrnEditor page = (UrnEditor) editor.getCurrentPage();
-        IURNDiagram diagram = page.getModel();
 
         AutoLayoutWizard wizard = new AutoLayoutWizard(page, diagram);
         String dot = AutoLayoutPreferences.locateDot();
@@ -138,8 +149,15 @@ public class AutoLayoutRenderTest {
         System.out.println("[dot out] " + plain.substring(0, Math.min(160, plain.length())).replace((char) 10, (char) 32));
         assertTrue("Graphviz produced no output", plain.length() > 0); //$NON-NLS-1$
 
-        CompoundCommand cmd = AutoLayoutWizard.commandsFor(diagram,
-                AutoLayoutWizard.placeUcm(decomposition, new PlainLayout(plain)));
+        PlainLayout parsed = new PlainLayout(plain);
+        java.util.Map<urncore.IURNNode, org.eclipse.draw2d.geometry.Point> placed = AutoLayoutWizard.placeUcm(decomposition, parsed);
+        System.out.println("[decomp] " + decomposition.describe() + " | plainNodes=" + parsed.nodeCount() + " | placed=" + placed.size());
+
+        CompoundCommand cmd = AutoLayoutWizard.commandsFor(diagram, placed);
+        // A map with no nodes has nothing to place, and producing no commands for it is correct.
+        if (((UCMmap) diagram).getNodes().isEmpty())
+            return;
+
         assertTrue("the layout should produce commands", !cmd.isEmpty()); //$NON-NLS-1$
         assertTrue("and they should be executable", cmd.canExecute()); //$NON-NLS-1$
 
@@ -250,11 +268,14 @@ public class AutoLayoutRenderTest {
                 if (!(d instanceof UCMmap))
                     continue;
 
+                if (((UCMmap) d).getNodes().isEmpty())
+                    continue; // nothing to draw, nothing to lay out
+
                 index++;
                 editor.setActivePage(d);
                 render(stem + "-" + index + "-before"); //$NON-NLS-1$ //$NON-NLS-2$
                 try {
-                    layoutCurrentPage();
+                    layout(d);
                     render(stem + "-" + index + "-after"); //$NON-NLS-1$ //$NON-NLS-2$
                 } catch (Exception e) {
                     System.out.println("[layout render] FAILED on " + stem + " map " + index + ": " + e); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
