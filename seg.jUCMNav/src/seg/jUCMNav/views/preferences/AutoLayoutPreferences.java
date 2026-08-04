@@ -58,6 +58,38 @@ public class AutoLayoutPreferences {
 	 * 
 	 * @return the path where Graphviz dot is located
 	 */
+	/**
+	 * The dot executable to use, or null when Graphviz cannot be found.
+	 *
+	 * The preference wins when it points at something that exists. Otherwise the usual install
+	 * locations are tried, then bare "dot" on the PATH -- the shipped default is an AT&T-era path
+	 * that has not existed for well over a decade, so for most users the preference is worse than
+	 * no answer at all.
+	 */
+	public static String locateDot() {
+		String preferred = getDotPath();
+		if (preferred != null && preferred.length() > 0 && new java.io.File(preferred).canExecute())
+			return preferred;
+
+		String[] candidates = { "C:\\Program Files\\Graphviz\\bin\\dot.exe", //$NON-NLS-1$
+				"C:\\Program Files (x86)\\Graphviz\\bin\\dot.exe", //$NON-NLS-1$
+				"/usr/bin/dot", "/usr/local/bin/dot", "/opt/homebrew/bin/dot" }; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+		for (int i = 0; i < candidates.length; i++) {
+			if (new java.io.File(candidates[i]).canExecute())
+				return candidates[i];
+		}
+
+		// Last resort: let the OS resolve it. Costs one failed process launch when absent.
+		try {
+			Process p = Runtime.getRuntime().exec(new String[] { "dot", "-V" }); //$NON-NLS-1$ //$NON-NLS-2$
+			if (p.waitFor() == 0)
+				return "dot"; //$NON-NLS-1$
+		} catch (Exception ignored) {
+			// not on the PATH either
+		}
+		return null;
+	}
+
 	public static String getDotPath() {
 		return getPreferenceStore().getString(PREF_DOTPATH);
 	}
