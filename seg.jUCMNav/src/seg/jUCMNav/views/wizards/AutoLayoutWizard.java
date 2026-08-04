@@ -24,6 +24,7 @@ import org.eclipse.draw2d.geometry.PointList;
 import org.eclipse.draw2d.geometry.Rectangle;
 import org.eclipse.gef.EditPart;
 import org.eclipse.gef.NodeEditPart;
+import org.eclipse.gef.commands.Command;
 import org.eclipse.gef.commands.CompoundCommand;
 import org.eclipse.jface.dialogs.ErrorDialog;
 import org.eclipse.jface.dialogs.MessageDialog;
@@ -38,6 +39,7 @@ import seg.jUCMNav.editparts.IntentionalElementEditPart;
 import seg.jUCMNav.importexport.ExportContractedDOT;
 import seg.jUCMNav.importexport.ExportLayoutDOT;
 import seg.jUCMNav.importexport.PlainLayout;
+import seg.jUCMNav.model.commands.transformations.AutoLayoutCommand;
 import seg.jUCMNav.model.commands.changeConstraints.SetConstraintBoundContainerRefCompoundCommand;
 import seg.jUCMNav.model.commands.changeConstraints.SetConstraintCommand;
 import seg.jUCMNav.model.commands.changeConstraints.SetConstraintContainerRefCommand;
@@ -208,6 +210,7 @@ public class AutoLayoutWizard extends Wizard {
     public boolean performFinish() {
         final List<IURNDiagram> targets = targets();
         final List<CompoundCommand> commands = new ArrayList<CompoundCommand>();
+        final List<IURNDiagram> laidOut = new ArrayList<IURNDiagram>();
         final Exception[] failure = new Exception[1];
 
         try {
@@ -226,8 +229,10 @@ public class AutoLayoutWizard extends Wizard {
                             monitor.subTask(name(target));
 
                             CompoundCommand cmd = target instanceof UCMmap ? layoutUcm((UCMmap) target) : layoutGeneric(target);
-                            if (cmd != null && !cmd.isEmpty() && cmd.canExecute())
+                            if (cmd != null && !cmd.isEmpty() && cmd.canExecute()) {
                                 commands.add(cmd);
+                                laidOut.add(target);
+                            }
 
                             monitor.worked(1);
                         }
@@ -254,8 +259,14 @@ public class AutoLayoutWizard extends Wizard {
 
             // Executed after the progress dialog closes, so a cancel leaves the model untouched
             // rather than half laid out.
-            for (Iterator<CompoundCommand> it = commands.iterator(); it.hasNext();)
-                editor.execute(it.next());
+            //
+            // One command, so one undo. Laying out a whole model used to execute one command per
+            // diagram, and putting it back took one Ctrl+Z per diagram -- with every intermediate
+            // press leaving some diagrams laid out and the rest not, which is a state the user
+            // never asked for. A single diagram keeps its plain compound command on the page stack,
+            // where its undo is not at the mercy of edits elsewhere; only a genuinely multi-diagram
+            // layout needs the global stack. See AutoLayoutCommand.
+            editor.execute(compose(commands, laidOut, diagram));
 
         } catch (Exception e) {
             Status status = new Status(IStatus.ERROR, "seg.jUCMNav", 1, e.toString(), e); //$NON-NLS-1$
@@ -265,6 +276,30 @@ public class AutoLayoutWizard extends Wizard {
             return false;
         }
         return true;
+    }
+
+    /**
+     * The one command the whole layout is undone by.
+     *
+     * <p>
+     * A single diagram stays an ordinary {@code CompoundCommand} on its own page's stack: that is
+     * already one undo, and a page stack keeps it until the user undoes it. Wrapping it as a global
+     * command instead would park it on the URN-spec stack, where the next ordinary edit can discard
+     * it -- a real loss for the common case, bought for nothing.
+     *
+     * <p>
+     * Several diagrams cannot be owned by any one page's stack, so they become an
+     * {@link AutoLayoutCommand}, which names the diagrams it touched so its undo survives edits
+     * anywhere else.
+     */
+    public static Command compose(List<CompoundCommand> commands, List<IURNDiagram> laidOut, IURNDiagram primary) {
+        if (commands.size() == 1)
+            return commands.get(0);
+
+        AutoLayoutCommand all = new AutoLayoutCommand(Messages.getString("AutoLayoutWizard.layingOut"), primary); //$NON-NLS-1$
+        for (int i = 0; i < commands.size(); i++)
+            all.add(laidOut.get(i), commands.get(i));
+        return all;
     }
 
     // ------------------------------------------------------------- UCM: the contracted layout
