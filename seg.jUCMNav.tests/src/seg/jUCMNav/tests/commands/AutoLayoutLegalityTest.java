@@ -172,7 +172,6 @@ public class AutoLayoutLegalityTest {
      * land in a band that does not own it, so both rule families are satisfied by construction
      * rather than by cleanup -- the same argument as the stub extraction in #29.
      */
-    @org.junit.Ignore("known: 1 violation before, 12 after -- components need swimlane bands, see #30")
     @Test
     public void layoutDoesNotIntroduceLayoutRuleViolations() throws Exception {
         open("IssueTrackerSyntheticLog_variant.jucm"); //$NON-NLS-1$

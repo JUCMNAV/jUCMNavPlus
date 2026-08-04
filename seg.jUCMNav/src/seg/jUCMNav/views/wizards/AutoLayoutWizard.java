@@ -41,6 +41,7 @@ import seg.jUCMNav.model.commands.changeConstraints.SetConstraintContainerRefCom
 import seg.jUCMNav.model.util.AutoLayoutCommandComparator;
 import seg.jUCMNav.model.util.ChainPlacement;
 import seg.jUCMNav.model.util.MetadataHelper;
+import seg.jUCMNav.model.util.SwimlaneBands;
 import seg.jUCMNav.model.util.UcmPathDecomposition;
 import seg.jUCMNav.views.preferences.AutoLayoutPreferences;
 import ucm.map.PathNode;
@@ -297,7 +298,11 @@ public class AutoLayoutWizard extends Wizard {
                 positions.put(interior.get(i), spread.getPoint(i));
         }
 
-        return positions;
+        // Graphviz decided the horizontal order, which is the topology. The vertical position is
+        // reassigned so each component becomes a band of its own: position is semantics in URN, and
+        // a layered layout has no notion of "a node must not sit inside a component that does not
+        // perform it". See SwimlaneBands.
+        return SwimlaneBands.apply(positions);
     }
 
     /**
