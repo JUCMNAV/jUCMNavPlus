@@ -14,7 +14,6 @@ public class AutoLayoutPreferences {
 
 	public final static String DEFAULTDOTPATH = "c:\\program files\\ATT\\GraphViz\\bin\\dot.exe"; //$NON-NLS-1$
 	public final static String DEFAULTNONWINDOWSDOTPATH = ""; //$NON-NLS-1$
-	public final static double DEFAULTHEIGHT = 11;
 	/**
 	 * Left to right, because that is how a use case map is drawn: a path runs across the page from
 	 * its start point to its end point. Top-to-bottom was the old default and turns the same model
@@ -22,15 +21,10 @@ public class AutoLayoutPreferences {
 	 * readable flow and a tangle.
 	 */
 	public final static String DEFAULTORIENTATION = "LR"; //$NON-NLS-1$
-	public final static double DEFAULTWIDTH = 8.5;
-	public final static boolean DEFAULTEMPTYPOINTS = true;
 	/** Lay out only the diagram you are looking at, unless asked otherwise. */
 	public final static boolean DEFAULTALLDIAGRAMS = false;
 	public final static String PREF_DOTPATH = "seg.jUCMNav.AutoLayout.DotPath"; //$NON-NLS-1$
-	public final static String PREF_HEIGHT = "seg.jUCMNav.AutoLayout.Height"; //$NON-NLS-1$
 	public final static String PREF_ORIENTATION = "seg.jUCMNav.AutoLayout.Orientation"; //$NON-NLS-1$
-	public final static String PREF_WIDTH = "seg.jUCMNav.AutoLayout.Width"; //$NON-NLS-1$
-	public final static String PREF_EMPTYPOINTS = "seg.jUCMNav.AutoLayout.EmptyPoints"; //$NON-NLS-1$
 	public final static String PREF_ALLDIAGRAMS = "seg.jUCMNav.AutoLayout.AllDiagrams"; //$NON-NLS-1$
 	public final static String URNODEPREFIX = "UrnNode"; //$NON-NLS-1$
 	public final static String DIAGPREFIX = "UrnDiag"; //$NON-NLS-1$
@@ -58,9 +52,6 @@ public class AutoLayoutPreferences {
 		}
 
 		getPreferenceStore().setDefault(AutoLayoutPreferences.PREF_ORIENTATION, AutoLayoutPreferences.DEFAULTORIENTATION);
-		getPreferenceStore().setDefault(AutoLayoutPreferences.PREF_WIDTH, AutoLayoutPreferences.DEFAULTWIDTH);
-		getPreferenceStore().setDefault(AutoLayoutPreferences.PREF_HEIGHT, AutoLayoutPreferences.DEFAULTHEIGHT);
-		getPreferenceStore().setDefault(AutoLayoutPreferences.PREF_EMPTYPOINTS, AutoLayoutPreferences.DEFAULTEMPTYPOINTS);
 		getPreferenceStore().setDefault(AutoLayoutPreferences.PREF_ALLDIAGRAMS, AutoLayoutPreferences.DEFAULTALLDIAGRAMS);
 	}
 
@@ -108,9 +99,6 @@ public class AutoLayoutPreferences {
 	 * 
 	 * @return the height parameter to give dot
 	 */
-	public static String getHeight() {
-		return getPreferenceStore().getString(PREF_HEIGHT);
-	}
 
 	/**
 	 * 
@@ -124,9 +112,6 @@ public class AutoLayoutPreferences {
 	 * 
 	 * @return the width parameter to give dot
 	 */
-	public static String getWidth() {
-		return getPreferenceStore().getString(PREF_WIDTH);
-	}
 
 	/**
 	 * 
@@ -141,9 +126,6 @@ public class AutoLayoutPreferences {
 		getPreferenceStore().setValue(PREF_ALLDIAGRAMS, b);
 	}
 
-	public static boolean getEmptyPoints() {
-		return getPreferenceStore().getBoolean(PREF_EMPTYPOINTS);
-	}
 
 	/**
 	 * 
@@ -159,18 +141,6 @@ public class AutoLayoutPreferences {
 	 * @param height
 	 *            the height parameter to give dot
 	 */
-	public static void setHeight(String height) {
-		String s;
-		// want to make sure it is convertible.
-		try {
-			double d = Double.parseDouble(height);
-			s = Double.toString(d);
-		} catch (Exception e) {
-			s = "0"; //$NON-NLS-1$
-		}
-
-		getPreferenceStore().setValue(PREF_HEIGHT, s);
-	}
 
 	/**
 	 * 
@@ -186,26 +156,11 @@ public class AutoLayoutPreferences {
 	 * @param width
 	 *            the width parameter to give dot
 	 */
-	public static void setWidth(String width) {
-		String s;
-		// want to make sure it is convertible.
-		try {
-			double d = Double.parseDouble(width);
-			s = Double.toString(d);
-		} catch (Exception e) {
-			s = "0"; //$NON-NLS-1$
-		}
-
-		getPreferenceStore().setValue(PREF_WIDTH, s);
-	}
 
 	/**
 	 * 
 	 * @param b
 	 *            should our empty points be manipulated during the transformation
 	 */
-	public static void setEmptyPoints(boolean b) {
-		getPreferenceStore().setValue(PREF_EMPTYPOINTS, b);
-	}
 
 }

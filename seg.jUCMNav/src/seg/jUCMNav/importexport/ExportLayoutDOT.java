@@ -104,12 +104,11 @@ public class ExportLayoutDOT implements IUseCaseMapExport {
 		int i;
 		StringBuffer dot = new StringBuffer();
 		String rankdir = AutoLayoutPreferences.getOrientation();
-		String size = AutoLayoutPreferences.getWidth() + "," + AutoLayoutPreferences.getHeight(); //$NON-NLS-1$
 
 		if (!(diagram instanceof UCMmap)) {
-			dot.append("digraph " + AutoLayoutPreferences.DIAGPREFIX + ((URNmodelElement) diagram).getId() + " {\nrankdir=\"" + rankdir + "\";\nsize=\"" + size + "\";\nranksep=\"1.0\";\n"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+			dot.append("digraph " + AutoLayoutPreferences.DIAGPREFIX + ((URNmodelElement) diagram).getId() + " {\nrankdir=\"" + rankdir + "\";\nranksep=\"1.0\";\n"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 		} else {
-			dot.append("digraph " + AutoLayoutPreferences.DIAGPREFIX + ((URNmodelElement) diagram).getId() + " {\nrankdir=\"" + rankdir + "\";\nsize=\"" + size + "\";\n"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$            
+			dot.append("digraph " + AutoLayoutPreferences.DIAGPREFIX + ((URNmodelElement) diagram).getId() + " {\nrankdir=\"" + rankdir + "\";\n"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$            
 		}
 		for (i = 0; i < diagram.getContRefs().size(); i++) {
 			IURNContainerRef contRef = (IURNContainerRef) diagram.getContRefs().get(i);

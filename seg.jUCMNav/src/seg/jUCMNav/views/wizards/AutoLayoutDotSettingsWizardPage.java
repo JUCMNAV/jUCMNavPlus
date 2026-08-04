@@ -30,9 +30,8 @@ import seg.jUCMNav.views.preferences.AutoLayoutPreferences;
 public class AutoLayoutDotSettingsWizardPage extends WizardPage {
     private Combo cboOrientation;
 
-    private Text txtDotPath, txtWidth, txtHeight;
+    private Text txtDotPath;
 
-    private Button chkEmptyPoints;
     private Button chkAllDiagrams;
 
     /**
@@ -102,50 +101,11 @@ public class AutoLayoutDotSettingsWizardPage extends WizardPage {
             }
         });
 
-        Label lblWidth = new Label(composite, SWT.NONE);
-        lblWidth.setText(Messages.getString("AutoLayoutDotSettingsWizardPage.width")); //$NON-NLS-1$
-
-        Label lblHeight = new Label(composite, SWT.NONE);
-        lblHeight.setText(Messages.getString("AutoLayoutDotSettingsWizardPage.height")); //$NON-NLS-1$
-
         Label lblOrientation = new Label(composite, SWT.NONE);
         lblOrientation.setText(Messages.getString("AutoLayoutDotSettingsWizardPage.orientation")); //$NON-NLS-1$
         data = new GridData();
         data.horizontalSpan = 2;
         lblOrientation.setLayoutData(data);
-
-        txtWidth = new Text(composite, SWT.BORDER | SWT.SINGLE | SWT.LEFT);
-        data = new GridData();
-        data.horizontalAlignment = GridData.FILL;
-        txtWidth.setLayoutData(data);
-
-        setWidth(AutoLayoutPreferences.getWidth());
-        txtWidth.addFocusListener(new FocusListener() {
-            public void focusGained(FocusEvent e) {
-            }
-
-            public void focusLost(FocusEvent e) {
-                setWidth(txtWidth.getText());
-
-            }
-        });
-
-        txtHeight = new Text(composite, SWT.BORDER | SWT.SINGLE | SWT.LEFT);
-
-        data = new GridData();
-        data.horizontalAlignment = GridData.FILL;
-        txtHeight.setLayoutData(data);
-
-        setHeight(AutoLayoutPreferences.getHeight());
-        txtHeight.addFocusListener(new FocusListener() {
-            public void focusGained(FocusEvent e) {
-            }
-
-            public void focusLost(FocusEvent e) {
-                setHeight(txtHeight.getText());
-
-            }
-        });
 
         cboOrientation = new Combo(composite, SWT.READ_ONLY);
         cboOrientation.setItems(new String[] {
@@ -158,6 +118,7 @@ public class AutoLayoutDotSettingsWizardPage extends WizardPage {
 
         data = new GridData();
         data.horizontalAlignment = GridData.FILL;
+        data.horizontalSpan = 2;
         cboOrientation.setLayoutData(data);
 
         cboOrientation.addFocusListener(new FocusListener() {
@@ -169,26 +130,11 @@ public class AutoLayoutDotSettingsWizardPage extends WizardPage {
             }
         });
 
-        chkEmptyPoints = new Button(composite, SWT.CHECK);
-        chkEmptyPoints.setText(Messages.getString("AutoLayoutDotSettingsWizardPage.manipulateEmptyPoints")); //$NON-NLS-1$
-        chkEmptyPoints.setSelection(AutoLayoutPreferences.getEmptyPoints());
-        data = new GridData();
-        data.horizontalSpan = 3;
-        chkEmptyPoints.setLayoutData(data);
-        chkEmptyPoints.addFocusListener(new FocusListener() {
-            public void focusGained(FocusEvent e) {
-            }
-
-            public void focusLost(FocusEvent e) {
-                setEmptyPoints(chkEmptyPoints.getSelection());
-            }
-        });
-
         chkAllDiagrams = new Button(composite, SWT.CHECK);
         chkAllDiagrams.setText(Messages.getString("AutoLayoutDotSettingsWizardPage.allDiagrams")); //$NON-NLS-1$
         chkAllDiagrams.setSelection(AutoLayoutPreferences.getAllDiagrams());
         data = new GridData();
-        data.horizontalSpan = 3;
+        data.horizontalSpan = 4;
         chkAllDiagrams.setLayoutData(data);
         chkAllDiagrams.addFocusListener(new FocusListener() {
             public void focusGained(FocusEvent e) {
@@ -210,10 +156,6 @@ public class AutoLayoutDotSettingsWizardPage extends WizardPage {
         updateStatus(doesDotPathExist() ? null : Messages.getString("AutoLayoutDotSettingsWizardPage.GraphvizNotFound")); //$NON-NLS-1$
     }
 
-    public void setHeight(String height) {
-        AutoLayoutPreferences.setHeight(height);
-        txtHeight.setText(AutoLayoutPreferences.getHeight());
-    }
 
     public void setOrientation(int i) {
         cboOrientation.select(i);
@@ -224,15 +166,7 @@ public class AutoLayoutDotSettingsWizardPage extends WizardPage {
 
     }
 
-    public void setWidth(String width) {
-        AutoLayoutPreferences.setWidth(width);
-        txtWidth.setText(AutoLayoutPreferences.getWidth());
 
-    }
-
-    public void setEmptyPoints(boolean b) {
-        AutoLayoutPreferences.setEmptyPoints(b);
-    }
 
     /**
      * Updates the status of the window
