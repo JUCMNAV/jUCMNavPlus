@@ -350,6 +350,69 @@ public class ConstrainedPlacementTest {
         return all.size() + " turns, worst first: " + all; //$NON-NLS-1$
     }
 
+    /**
+     * The orientation setting has to reach the solver, not just Graphviz.
+     *
+     * <p>
+     * The flow force is one-dimensional, so the axis it acts on <i>is</i> the orientation. It was
+     * hard-coded to x while the seed was produced under whatever {@code rankdir} the preference
+     * said -- so choosing "top down" seeded a top-down drawing and then spent six hundred
+     * iterations pushing it left to right. The two were pulling against each other for the whole
+     * descent, which is worth a test rather than a comment.
+     */
+    @Test
+    public void honoursTheOrientationItIsGiven() throws Exception {
+        assumeGraphviz();
+
+        UcmPathDecomposition d = new UcmPathDecomposition(sampleMap);
+        Map<IURNNode, Dimension> sizes = extents(storedPositions());
+
+        // The seed has to be generated under the same orientation the solver is told to use --
+        // ExportContractedDOT sets rankdir from this preference. Seeding left-to-right and then
+        // flowing top-to-bottom does not produce a top-to-bottom drawing; it produces the two
+        // fighting, with the seed winning. That is the bug this pair of arguments exists to stop,
+        // so the test has to set both the way the wizard does.
+        Map<IURNNode, Point> leftToRight = withOrientation("LR", d, sizes, true); //$NON-NLS-1$
+        Map<IURNNode, Point> topToBottom = withOrientation("TB", d, sizes, false); //$NON-NLS-1$
+
+        double lrAcross = progress(d, leftToRight, true), lrDown = progress(d, leftToRight, false);
+        double tbAcross = progress(d, topToBottom, true), tbDown = progress(d, topToBottom, false);
+
+        System.out.println("flow, left-to-right: x " + Math.round(lrAcross) + " y " + Math.round(lrDown)); //$NON-NLS-1$ //$NON-NLS-2$
+        System.out.println("flow, top-to-bottom: x " + Math.round(tbAcross) + " y " + Math.round(tbDown)); //$NON-NLS-1$ //$NON-NLS-2$
+
+        assertTrue("left to right must advance mostly across: x " + lrAcross + " y " + lrDown, lrAcross > lrDown); //$NON-NLS-1$ //$NON-NLS-2$
+        assertTrue("top to bottom must advance mostly down: x " + tbAcross + " y " + tbDown, tbDown > tbAcross); //$NON-NLS-1$ //$NON-NLS-2$
+    }
+
+    /** Seeds and solves the way the wizard does: one orientation, used for both. */
+    private Map<IURNNode, Point> withOrientation(String rankdir, UcmPathDecomposition d, Map<IURNNode, Dimension> sizes, boolean leftToRight)
+            throws Exception {
+        String was = AutoLayoutPreferences.getPreferenceStore().getString(AutoLayoutPreferences.PREF_ORIENTATION);
+        AutoLayoutPreferences.getPreferenceStore().setValue(AutoLayoutPreferences.PREF_ORIENTATION, rankdir);
+        try {
+            return ConstrainedPlacement.solve(d, seed(d), sizes, 30, leftToRight);
+        } finally {
+            AutoLayoutPreferences.getPreferenceStore().setValue(AutoLayoutPreferences.PREF_ORIENTATION, was);
+        }
+    }
+
+    /** Mean forward progress along one axis per chain, ignoring the loop that goes back on purpose. */
+    private double progress(UcmPathDecomposition d, Map<IURNNode, Point> positions, boolean alongX) {
+        double total = 0;
+        int count = 0;
+        for (Iterator<UcmPathDecomposition.Chain> it = d.getChains().iterator(); it.hasNext();) {
+            UcmPathDecomposition.Chain chain = it.next();
+            Point from = positions.get(chain.getFrom()), to = positions.get(chain.getTo());
+            if (d.isBackEdge(chain) || from == null || to == null)
+                continue;
+
+            total += alongX ? to.x - from.x : to.y - from.y;
+            count++;
+        }
+        return count == 0 ? 0 : total / count;
+    }
+
     // ---------------------------------------------------------------------------------- helpers
 
     private void assumeGraphviz() {

@@ -160,6 +160,19 @@ public class ConstrainedPlacement {
      */
     public static Map<IURNNode, Point> solve(UcmPathDecomposition decomposition, Map<IURNNode, Point> positions,
             Map<IURNNode, Dimension> sizes, int margin) {
+        return solve(decomposition, positions, sizes, margin, true);
+    }
+
+    /**
+     * As above, flowing along the given axis.
+     *
+     * @param leftToRight
+     *            true for a drawing that reads left to right, false for one that reads top to
+     *            bottom. This must agree with the {@code rankdir} the seed was produced under --
+     *            see {@link #applyFlow}.
+     */
+    public static Map<IURNNode, Point> solve(UcmPathDecomposition decomposition, Map<IURNNode, Point> positions,
+            Map<IURNNode, Dimension> sizes, int margin, boolean leftToRight) {
 
         if (decomposition == null || positions == null || positions.size() < 2)
             return positions;
@@ -218,7 +231,12 @@ public class ConstrainedPlacement {
             }
 
             applySprings(springs, x, y, dx, dy);
-            applyFlow(springs, x, dx);
+
+            // The flow force is one-dimensional, so which axis it acts on *is* the orientation.
+            // Left-to-right pushes along x; top-to-bottom pushes along y. Getting this wrong is not
+            // cosmetic: seeding from a top-down Graphviz run and then flowing left-to-right sets
+            // the seed and the solver against each other for the whole descent.
+            applyFlow(springs, leftToRight ? x : y, leftToRight ? dx : dy);
             applyStraightening(corners, x, y, dx, dy);
             applyCohesion(groups, x, y, dx, dy);
             applyRepulsion(nodes, sizes, x, y, dx, dy);
@@ -526,20 +544,20 @@ public class ConstrainedPlacement {
      * to run diagonally or almost vertically, and only an actual reversal is opposed. A loop's back
      * edge is exempt, since going back is what it is for.
      */
-    private static void applyFlow(int[][] springs, double[] x, double[] dx) {
+    private static void applyFlow(int[][] springs, double[] along, double[] push) {
         for (int s = 0; s < springs.length; s++) {
             if (springs[s][3] == 1)
                 continue; // a loop closes backwards on purpose
 
             int a = springs[s][0], b = springs[s][1];
             double wanted = springs[s][2] * FLOW_FRACTION;
-            double gap = x[b] - x[a];
+            double gap = along[b] - along[a];
             if (gap >= wanted)
                 continue;
 
-            double push = FLOW * (wanted - gap) / 2.0;
-            dx[a] -= push;
-            dx[b] += push;
+            double force = FLOW * (wanted - gap) / 2.0;
+            push[a] -= force;
+            push[b] += force;
         }
     }
 

@@ -335,7 +335,8 @@ public class AutoLayoutWizard extends Wizard {
         // derived from the run between its two junctions -- so this is a fifteen-point problem.
         // See ConstrainedPlacement, and issue #30 for what it replaces.
         if (!"true".equals(System.getProperty("jucmnav.layout.passes"))) { //$NON-NLS-1$ //$NON-NLS-2$
-            ConstrainedPlacement.solve(decomposition, positions, visualExtentsOf(positions), COMPONENT_MARGIN);
+            ConstrainedPlacement.solve(decomposition, positions, visualExtentsOf(positions), COMPONENT_MARGIN,
+                    !"TB".equalsIgnoreCase(AutoLayoutPreferences.getOrientation())); //$NON-NLS-1$
             return ConstrainedPlacement.placeChainInteriors(decomposition, positions);
         }
 
