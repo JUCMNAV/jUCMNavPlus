@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
@@ -296,6 +297,7 @@ public class AutoLayoutWizard extends Wizard {
         // taken round the boxes in their final places. Only the junctions exist at this point,
         // which is all a component's rectangle is made of anyway.
         if (!"true".equals(System.getProperty("jucmnav.layout.noseparation"))) ComponentSeparation.apply(positions, extentsOf(positions), COMPONENT_MARGIN);
+        Set<IURNNode> pulled = pullShapeNodesToTheirNeighbours(decomposition, positions);
         Map<Object, Rectangle> boxes = componentBoxes(positions);
 
         for (Iterator<UcmPathDecomposition.Chain> it = decomposition.getChains().iterator(); it.hasNext();) {
@@ -318,8 +320,9 @@ public class AutoLayoutWizard extends Wizard {
             // avoid. Measured: spacing ratio 7.1 against a bound of 3.
             List<Rectangle> obstacles = chain.length() >= DETOUR_MIN_NODES
                     ? new ArrayList<Rectangle>(boxes.values()) : new ArrayList<Rectangle>();
-            PointList spread = ChainPlacement.distribute(
-                    detour(routeOf(chain, layout, from, to), obstacles), chain.length());
+            boolean stale = pulled.contains(chain.getFrom()) || pulled.contains(chain.getTo());
+            PointList route = stale ? straight(from, to) : routeOf(chain, layout, from, to);
+            PointList spread = ChainPlacement.distribute(detour(route, obstacles), chain.length());
             List<PathNode> interior = chain.getInterior();
             for (int i = 0; i < interior.size() && i < spread.size(); i++)
                 positions.put(interior.get(i), spread.getPoint(i));
@@ -334,6 +337,73 @@ public class AutoLayoutWizard extends Wizard {
         return positions;
     }
 
+
+
+    /**
+     * Moves forks, joins, empty points and arrows to sit among the nodes they connect.
+     *
+     * <p>
+     * Their binding means nothing -- they mark where a path branches or bends, not who does the
+     * work -- so they may lie inside a component or outside it freely. Graphviz, knowing nothing of
+     * that, places them by rank alone, which routinely leaves an AND-fork sitting outside the very
+     * component holding both of its branches. The path then has to dive out of the component to
+     * reach the fork and dive back in, once per branch, which is what the plunges are.
+     *
+     * <p>
+     * Put the fork at the centre of what it connects and both dives disappear: the branches spread
+     * from a point already among them. Nothing else has to move, and nothing is asserted that was
+     * not true before, since the node's containment carries no meaning either way.
+     */
+    private static Set<IURNNode> pullShapeNodesToTheirNeighbours(UcmPathDecomposition decomposition, Map<IURNNode, Point> positions) {
+        Set<IURNNode> moved = new java.util.HashSet<IURNNode>();
+        for (Iterator<PathNode> it = decomposition.getJunctions().iterator(); it.hasNext();) {
+            PathNode pn = it.next();
+            if (!positions.containsKey(pn) || ComponentSeparation.bindingIsMeaningful(pn))
+                continue;
+
+            int sumX = 0, sumY = 0, count = 0;
+            for (Iterator<UcmPathDecomposition.Chain> c = decomposition.getChains().iterator(); c.hasNext();) {
+                UcmPathDecomposition.Chain chain = c.next();
+                IURNNode other = chain.getFrom() == pn ? chain.getTo() : (chain.getTo() == pn ? chain.getFrom() : null);
+                Point at = other == null ? null : positions.get(other);
+                if (at == null)
+                    continue;
+
+                sumX += at.x;
+                sumY += at.y;
+                count++;
+            }
+
+            // Only the cross-axis is taken. The rank axis -- x under rankdir=LR -- is the order
+            // the path runs in, and moving a fork along it can place the node behind its own
+            // neighbours: the chain then doubles back, and an interpolating spline through a
+            // reversal is the worst case there is. Measured at a 158-degree turn before this was
+            // constrained. Across the flow there is no such ordering to break, so the fork drops
+            // freely into the band its branches occupy.
+            if (count >= 2) {
+                Point at = positions.get(pn);
+                boolean leftToRight = "LR".equals(AutoLayoutPreferences.getOrientation()) || "RL".equals(AutoLayoutPreferences.getOrientation());
+                positions.put(pn, leftToRight ? new Point(at.x, sumY / count) : new Point(sumX / count, at.y));
+                moved.add(pn);
+            }
+        }
+        return moved;
+    }
+
+    /**
+     * The straight line between two junctions.
+     *
+     * Used when either end has been moved since Graphviz routed the chain. Its spline was computed
+     * for the old positions, and pinning the ends to the new ones while keeping the old middle puts
+     * a spike in the curve exactly where the node moved -- measured at a 141-degree turn. A straight
+     * line is a worse route and a much better shape, and ChainPlacement smooths it either way.
+     */
+    private static PointList straight(Point from, Point to) {
+        PointList route = new PointList();
+        route.addPoint(from);
+        route.addPoint(to);
+        return route;
+    }
 
     /** The rectangle each outermost component occupies, given where its nodes are. */
     private static Map<Object, Rectangle> componentBoxes(Map<IURNNode, Point> positions) {
