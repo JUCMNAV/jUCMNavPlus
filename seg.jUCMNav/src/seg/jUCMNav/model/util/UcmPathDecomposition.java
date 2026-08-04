@@ -89,6 +89,7 @@ public class UcmPathDecomposition {
     private final UCMmap map;
     private final Set<PathNode> junctions = new LinkedHashSet<PathNode>();
     private final List<Chain> chains = new ArrayList<Chain>();
+    private final Set<Chain> backEdges = new LinkedHashSet<Chain>();
 
     public UcmPathDecomposition(UCMmap map) {
         this.map = map;
@@ -102,6 +103,7 @@ public class UcmPathDecomposition {
         }
 
         buildChains();
+        findBackEdges();
     }
 
     /**
@@ -157,6 +159,58 @@ public class UcmPathDecomposition {
                 chains.add(new Chain(junction, at, interior, connections));
             }
         }
+    }
+
+    /**
+     * The chains that close a loop, found by depth-first search from the path's beginnings.
+     *
+     * <p>
+     * A layered layout ranks every edge forward, so a loop's back edge drags its target below its
+     * source and the whole drawing stretches to accommodate an ordering that cannot be satisfied.
+     * Told to ignore these for ranking, Graphviz lays out the forward structure and routes the loop
+     * around it -- which is how a UCM loop is drawn by hand, and measurably more compact.
+     */
+    private void findBackEdges() {
+        Set<PathNode> exploring = new LinkedHashSet<PathNode>();
+        Set<PathNode> done = new LinkedHashSet<PathNode>();
+
+        // Start from the path's beginnings; anything left over belongs to a cycle nothing enters,
+        // and is picked up by the second pass so no chain goes unclassified.
+        for (Iterator<PathNode> it = junctions.iterator(); it.hasNext();) {
+            PathNode pn = it.next();
+            if (pn.getPred().isEmpty())
+                walk(pn, exploring, done);
+        }
+        for (Iterator<PathNode> it = junctions.iterator(); it.hasNext();) {
+            PathNode pn = it.next();
+            if (!done.contains(pn))
+                walk(pn, exploring, done);
+        }
+    }
+
+    private void walk(PathNode at, Set<PathNode> exploring, Set<PathNode> done) {
+        if (done.contains(at))
+            return;
+
+        exploring.add(at);
+        for (int i = 0; i < chains.size(); i++) {
+            Chain chain = chains.get(i);
+            if (chain.getFrom() != at || !(chain.getTo() instanceof PathNode))
+                continue;
+
+            PathNode next = (PathNode) chain.getTo();
+            if (exploring.contains(next))
+                backEdges.add(chain); // reaches something we are still inside: a loop
+            else
+                walk(next, exploring, done);
+        }
+        exploring.remove(at);
+        done.add(at);
+    }
+
+    /** Whether this chain closes a loop, and so should not constrain the ranking. */
+    public boolean isBackEdge(Chain chain) {
+        return backEdges.contains(chain);
     }
 
     /** The nodes Graphviz is asked to place. */

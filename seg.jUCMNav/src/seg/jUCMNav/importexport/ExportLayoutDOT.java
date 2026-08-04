@@ -36,7 +36,7 @@ public class ExportLayoutDOT implements IUseCaseMapExport {
 	private static void buildCluster(IURNContainerRef contRef, StringBuffer dot) {
 
 		dot.append("subgraph " + AutoLayoutPreferences.CONTAINERPREFIX + ((URNmodelElement) contRef).getId() + " {\r\n"); //$NON-NLS-1$ //$NON-NLS-2$
-		dot.append("CheapTrick" + id++ + " [pos=\"\", width=\""+ contRef.getWidth()/72.0 +"\", height=\""+ contRef.getHeight()/72.0 +"\"];\n"); //$NON-NLS-1$ //$NON-NLS-2$
+		dot.append("CheapTrick" + id++ + " [label=\"\", pos=\"\", width=\""+ contRef.getWidth()/72.0 +"\", height=\""+ contRef.getHeight()/72.0 +"\"];\n"); //$NON-NLS-1$ //$NON-NLS-2$
 
 		IURNContainerRef child;
 		for (int i = 0; i < contRef.getChildren().size(); i++) {
@@ -92,7 +92,7 @@ public class ExportLayoutDOT implements IUseCaseMapExport {
 				}
 
 				dot.append(AutoLayoutPreferences.URNODEPREFIX + ((URNmodelElement) node).getId() + 
-						"[height=\"" + height/72.0 + "\", width=\"" + width/72.0 + "\"];\n"); //$NON-NLS-1$
+						"[label=\"\", height=\"" + height/72.0 + "\", width=\"" + width/72.0 + "\"];\n"); //$NON-NLS-1$
 			}
 		}
 

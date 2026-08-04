@@ -238,6 +238,77 @@ public class AutoLayoutPipelineTest {
         assertEquals("nor the last", new Point(300, 400), smooth.getPoint(smooth.size() - 1)); //$NON-NLS-1$
     }
 
+    /**
+     * The chain that closes the sample's Test Fix / Fix Bug loop must be recognised as a back edge,
+     * and no other chain should be. Everything else is forward structure that has to be ranked.
+     */
+    @Test
+    public void findsTheLoopsBackEdgeAndNothingElse() {
+        UcmPathDecomposition d = new UcmPathDecomposition(sampleMap);
+
+        int found = 0;
+        for (Iterator<UcmPathDecomposition.Chain> it = d.getChains().iterator(); it.hasNext();) {
+            UcmPathDecomposition.Chain chain = it.next();
+            if (!d.isBackEdge(chain))
+                continue;
+
+            found++;
+            assertEquals("the back edge should be the one re-entering the loop join", //$NON-NLS-1$
+                    node("11"), chain.getTo()); //$NON-NLS-1$
+        }
+        assertEquals("exactly one back edge in the sample", 1, found); //$NON-NLS-1$
+    }
+
+    /**
+     * What we hand Graphviz, checked directly: no component-sized invisible blob, and the loop
+     * excused from ranking. Both were worth a factor of seven in drawing area between them.
+     */
+    @Test
+    public void theContractedDotAsksForACompactDrawing() {
+        AutoLayoutPreferences.createPreferences();
+        UcmPathDecomposition d = new UcmPathDecomposition(sampleMap);
+        String dot = ExportContractedDOT.convert(sampleMap, d);
+
+        assertTrue("a loop back edge must not constrain the ranking", dot.indexOf("constraint=\"false\"") >= 0); //$NON-NLS-1$ //$NON-NLS-2$
+
+        // The sample's components all hold junctions, so none of them needs a placeholder at all.
+        assertEquals("no sizing placeholder should be needed here", -1, dot.indexOf("CheapTrick")); //$NON-NLS-1$ //$NON-NLS-2$
+    }
+
+    /**
+     * Every node we emit must be labelled empty.
+     *
+     * <p>
+     * A node keeping its name as a label cannot fit in the size we give it, and dot reports that
+     * once per node. Nothing reads its stderr, the pipe fills at around 64KB, dot blocks writing to
+     * it, and the layout hangs -- which is what happened on a 1200-node process-mined model:
+     * minutes of nothing, then kill the workbench. Measured at 64000 bytes of stderr for such a
+     * graph, and zero with the labels suppressed.
+     */
+    @Test
+    public void everyEmittedNodeSuppressesItsLabel() {
+        AutoLayoutPreferences.createPreferences();
+        String dot = ExportContractedDOT.convert(sampleMap, new UcmPathDecomposition(sampleMap));
+
+        int nodes = 0;
+        java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.StringReader(dot));
+        try {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                line = line.trim();
+                if (line.indexOf("width=") < 0) //$NON-NLS-1$
+                    continue;
+
+                nodes++;
+                assertTrue("a sized node without label=\"\" makes dot warn once per node: " + line, //$NON-NLS-1$
+                        line.indexOf("label=\"\"") >= 0); //$NON-NLS-1$
+            }
+        } catch (java.io.IOException e) {
+            throw new RuntimeException(e);
+        }
+        assertTrue("the sample should emit some sized nodes", nodes > 0); //$NON-NLS-1$
+    }
+
     // ------------------------------------------------------------------------- end to end
 
     /**

@@ -130,10 +130,36 @@ public class AutoLayoutWizard extends Wizard {
         }
 
         try {
-            Process p = Runtime.getRuntime().exec(new String[] { dot, "-T" + output_format }); //$NON-NLS-1$
-            OutputStream ostream = p.getOutputStream();
-            ostream.write(input_for_dot);
-            ostream.close();
+            ProcessBuilder builder = new ProcessBuilder(new String[] { dot, "-T" + output_format }); //$NON-NLS-1$
+
+            // Discard stderr rather than leave it unread. dot warns readily -- a label that will
+            // not fit is one warning per node -- and an unread pipe fills at around 64KB, after
+            // which dot blocks writing to it and never produces output. That is not a theoretical
+            // deadlock: it is what made auto-layout hang for minutes on a large model with nothing
+            // to show and nothing to cancel. The labels that caused it are gone too, but the
+            // process must not be able to wedge us again whatever dot decides to complain about.
+            builder.redirectError(ProcessBuilder.Redirect.DISCARD);
+
+            final Process p = builder.start();
+
+            // Feed stdin from another thread. dot buffers the whole graph before laying it out, so
+            // in practice it drains us first, but a writer that blocks while we are not yet
+            // reading is the same class of deadlock and costs one thread to rule out.
+            final byte[] input = input_for_dot;
+            Thread feeder = new Thread(new Runnable() {
+                public void run() {
+                    try {
+                        OutputStream ostream = p.getOutputStream();
+                        ostream.write(input);
+                        ostream.close();
+                    } catch (IOException ignored) {
+                        // dot exited early; the empty output is reported by the caller
+                    }
+                }
+            }, "graphviz-stdin"); //$NON-NLS-1$
+            feeder.setDaemon(true);
+            feeder.start();
+
             istream = new BufferedInputStream(p.getInputStream());
         } catch (Exception e) {
             Status status = new Status(IStatus.ERROR, "seg.jUCMNav", 1, e.toString(), e); //$NON-NLS-1$

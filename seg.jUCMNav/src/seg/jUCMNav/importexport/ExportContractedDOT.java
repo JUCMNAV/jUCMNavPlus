@@ -68,8 +68,13 @@ public class ExportContractedDOT {
                 continue;
 
             int room = MIN_RANK_SEPARATION + chain.length() * NODES_PER_RANK;
+
+            // A loop's back edge is routed but not ranked. Ranking it would drag its target below
+            // its source and stretch the drawing to satisfy an order that cannot hold.
+            String constraint = decomposition.isBackEdge(chain) ? ", constraint=\"false\"" : ""; //$NON-NLS-1$ //$NON-NLS-2$
+
             dot.append(name((PathNode) chain.getFrom()) + " -> " + name((PathNode) chain.getTo()) //$NON-NLS-1$
-                    + " [minlen=\"" + room + "\"];\n"); //$NON-NLS-1$ //$NON-NLS-2$
+                    + " [minlen=\"" + room + "\"" + constraint + "];\n"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
         }
 
         dot.append("}\n"); //$NON-NLS-1$
@@ -79,10 +84,15 @@ public class ExportContractedDOT {
     private static void cluster(IURNContainerRef ref, UcmPathDecomposition decomposition, StringBuffer dot) {
         dot.append("subgraph " + AutoLayoutPreferences.CONTAINERPREFIX + ((URNmodelElement) ref).getId() + " {\n"); //$NON-NLS-1$ //$NON-NLS-2$
 
-        // A cluster with no node in it collapses to nothing, taking the component with it, so it
-        // gets an invisible occupant sized like the component itself.
-        dot.append("CheapTrick" + cheapTrick++ + " [style=\"invis\", width=\"" //$NON-NLS-1$ //$NON-NLS-2$
-                + ref.getWidth() / 72.0 + "\", height=\"" + ref.getHeight() / 72.0 + "\"];\n"); //$NON-NLS-1$ //$NON-NLS-2$
+        // A cluster holding nothing collapses, taking the component with it, so an empty one gets a
+        // small invisible occupant. It is deliberately NOT sized from the component's current
+        // bounds, which is what the old exporter did: a component 1681px wide became a 23-inch
+        // invisible blob the whole drawing had to be laid out around. On the sample map that habit
+        // alone cost a factor of seven in area -- 2847x754 points against 1606x192 -- and bought
+        // nothing, since a component's new rectangle is derived from where its nodes end up rather
+        // than from where it used to be.
+        if (!holdsAJunction(ref, decomposition))
+            dot.append("CheapTrick" + cheapTrick++ + " [label=\"\", style=\"invis\", width=\"0.8\", height=\"0.5\"];\n"); //$NON-NLS-1$ //$NON-NLS-2$
 
         for (Iterator<?> it = ref.getChildren().iterator(); it.hasNext();) {
             Object child = it.next();
@@ -102,8 +112,25 @@ public class ExportContractedDOT {
         dot.append("}\n"); //$NON-NLS-1$
     }
 
+    private static boolean holdsAJunction(IURNContainerRef ref, UcmPathDecomposition decomposition) {
+        for (Iterator<?> it = ref.getNodes().iterator(); it.hasNext();) {
+            if (decomposition.getJunctions().contains(it.next()))
+                return true;
+        }
+        for (Iterator<?> it = ref.getChildren().iterator(); it.hasNext();) {
+            Object child = it.next();
+            if (child instanceof IURNContainerRef && holdsAJunction((IURNContainerRef) child, decomposition))
+                return true;
+        }
+        return false;
+    }
+
     private static String node(PathNode pn) {
-        return name(pn) + " [fixedsize=\"true\", width=\"0.35\", height=\"0.35\"];\n"; //$NON-NLS-1$
+        // label="" is not cosmetic. Without it a node keeps its name as a label, which cannot fit
+        // in 0.35 inches, and dot writes "size too small for label" to stderr once per node -- 64KB
+        // of it for a 1200-node map. Nothing drains that pipe, so dot blocks on a full stderr and
+        // the layout hangs forever with no output and no error. See #30.
+        return name(pn) + " [label=\"\", fixedsize=\"true\", width=\"0.35\", height=\"0.35\"];\n"; //$NON-NLS-1$
     }
 
     private static String name(PathNode pn) {
