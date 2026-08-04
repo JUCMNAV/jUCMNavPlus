@@ -17,6 +17,7 @@ import java.util.Map;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
+import org.eclipse.draw2d.geometry.Dimension;
 import org.eclipse.draw2d.geometry.Point;
 import org.eclipse.draw2d.geometry.PointList;
 import org.eclipse.gef.EditPart;
@@ -40,6 +41,7 @@ import seg.jUCMNav.model.commands.changeConstraints.SetConstraintCommand;
 import seg.jUCMNav.model.commands.changeConstraints.SetConstraintContainerRefCommand;
 import seg.jUCMNav.model.util.AutoLayoutCommandComparator;
 import seg.jUCMNav.model.util.ChainPlacement;
+import seg.jUCMNav.model.util.ComponentSeparation;
 import seg.jUCMNav.model.util.MetadataHelper;
 import seg.jUCMNav.model.util.SwimlaneBands;
 import seg.jUCMNav.model.util.UcmPathDecomposition;
@@ -83,6 +85,9 @@ public class AutoLayoutWizard extends Wizard {
 
     /** Breathing room between a component's boundary and the nodes it holds. */
     private static final int COMPONENT_MARGIN = 30;
+
+    /** Assumed extent of a node whose figure size was never recorded -- a UCM path node is small. */
+    private static final int DEFAULT_NODE_EXTENT = 30;
 
     public AutoLayoutWizard(UrnEditor editor, IURNDiagram map) {
         this.diagram = map;
@@ -374,7 +379,44 @@ public class AutoLayoutWizard extends Wizard {
         return new Point((int) Math.round(x) + PADDING, (int) Math.round(layout.getHeight() - y) + PADDING);
     }
 
+    /**
+     * How big each node is drawn, from the dimensions harvested off the figures.
+     *
+     * A container's rectangle has to hold its nodes' <i>extents</i>, not their centres. A GRL
+     * intentional element is drawn around 150x85; a box taken from centres alone is far too small,
+     * and the actor then does not visually contain the elements bound to it.
+     */
+    private static Map<IURNNode, Dimension> extentsOf(Map<IURNNode, Point> positions) {
+        Map<IURNNode, Dimension> sizes = new HashMap<IURNNode, Dimension>();
+
+        for (Iterator<IURNNode> it = positions.keySet().iterator(); it.hasNext();) {
+            IURNNode node = it.next();
+            int width = DEFAULT_NODE_EXTENT, height = DEFAULT_NODE_EXTENT;
+
+            String w = MetadataHelper.getMetaData((URNmodelElement) node, "_width"); //$NON-NLS-1$
+            String h = MetadataHelper.getMetaData((URNmodelElement) node, "_height"); //$NON-NLS-1$
+            try {
+                if (w != null && h != null && Double.parseDouble(w) > 0 && Double.parseDouble(h) > 0) {
+                    width = (int) Double.parseDouble(w);
+                    height = (int) Double.parseDouble(h);
+                }
+            } catch (NumberFormatException keepTheDefault) {
+                // metadata written by an older version
+            }
+            sizes.put(node, new Dimension(width, height));
+        }
+        return sizes;
+    }
+
     public static CompoundCommand commandsFor(IURNDiagram diagram, Map<IURNNode, Point> positions) {
+        Map<IURNNode, Dimension> extents = extentsOf(positions);
+
+        // Placed freely by topology, then the boxes those placements imply are pushed apart. URN
+        // only requires that containers not overlap and that nothing unbound be drawn inside one --
+        // it does not require a container's members to occupy adjacent ranks, which is the extra
+        // constraint a Graphviz cluster adds and the reason clusters tangled the path.
+        ComponentSeparation.apply(positions, extents, COMPONENT_MARGIN);
+
         CompoundCommand cmd = new CompoundCommand();
 
         for (Iterator<?> it = diagram.getContRefs().iterator(); it.hasNext();) {
