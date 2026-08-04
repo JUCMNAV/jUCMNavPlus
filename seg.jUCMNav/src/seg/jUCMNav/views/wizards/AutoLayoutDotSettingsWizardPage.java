@@ -33,6 +33,7 @@ public class AutoLayoutDotSettingsWizardPage extends WizardPage {
     private Text txtDotPath, txtWidth, txtHeight;
 
     private Button chkEmptyPoints;
+    private Button chkAllDiagrams;
 
     /**
      * @param pageName
@@ -180,6 +181,21 @@ public class AutoLayoutDotSettingsWizardPage extends WizardPage {
 
             public void focusLost(FocusEvent e) {
                 setEmptyPoints(chkEmptyPoints.getSelection());
+            }
+        });
+
+        chkAllDiagrams = new Button(composite, SWT.CHECK);
+        chkAllDiagrams.setText(Messages.getString("AutoLayoutDotSettingsWizardPage.allDiagrams")); //$NON-NLS-1$
+        chkAllDiagrams.setSelection(AutoLayoutPreferences.getAllDiagrams());
+        data = new GridData();
+        data.horizontalSpan = 3;
+        chkAllDiagrams.setLayoutData(data);
+        chkAllDiagrams.addFocusListener(new FocusListener() {
+            public void focusGained(FocusEvent e) {
+            }
+
+            public void focusLost(FocusEvent e) {
+                AutoLayoutPreferences.setAllDiagrams(chkAllDiagrams.getSelection());
             }
         });
 

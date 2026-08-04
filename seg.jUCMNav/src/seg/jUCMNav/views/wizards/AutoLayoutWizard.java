@@ -14,6 +14,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.draw2d.geometry.Point;
@@ -23,6 +24,7 @@ import org.eclipse.gef.NodeEditPart;
 import org.eclipse.gef.commands.CompoundCommand;
 import org.eclipse.jface.dialogs.ErrorDialog;
 import org.eclipse.jface.dialogs.MessageDialog;
+import org.eclipse.jface.operation.IRunnableWithProgress;
 import org.eclipse.jface.wizard.Wizard;
 import org.eclipse.ui.PlatformUI;
 
@@ -171,21 +173,75 @@ public class AutoLayoutWizard extends Wizard {
         return istream;
     }
 
+    /**
+     * The diagrams this run will lay out: just the one being edited, or every diagram in the model
+     * when the wizard's "all diagrams" box is ticked. One is the default, because laying out a
+     * whole model is a large, surprising change to make by accident.
+     */
+    private List<IURNDiagram> targets() {
+        List<IURNDiagram> targets = new ArrayList<IURNDiagram>();
+
+        if (!AutoLayoutPreferences.getAllDiagrams() || diagram == null || diagram.getUrndefinition() == null) {
+            targets.add(diagram);
+            return targets;
+        }
+
+        for (Iterator<?> it = diagram.getUrndefinition().getSpecDiagrams().iterator(); it.hasNext();)
+            targets.add((IURNDiagram) it.next());
+        return targets;
+    }
+
     public boolean performFinish() {
+        final List<IURNDiagram> targets = targets();
+        final List<CompoundCommand> commands = new ArrayList<CompoundCommand>();
+        final Exception[] failure = new Exception[1];
+
         try {
-            CompoundCommand cmd = diagram instanceof UCMmap ? layoutUcm((UCMmap) diagram) : layoutGeneric();
+            // Runs on the UI thread (fork = false) so nothing touches the model or the editparts
+            // off it, but cancellable and reporting progress, which is what a run over a whole
+            // model needs -- and what the old one lacked when a large map made it look hung.
+            getContainer().run(false, true, new IRunnableWithProgress() {
+                public void run(IProgressMonitor monitor) {
+                    monitor.beginTask(Messages.getString("AutoLayoutWizard.layingOut"), targets.size()); //$NON-NLS-1$
+                    try {
+                        for (Iterator<IURNDiagram> it = targets.iterator(); it.hasNext();) {
+                            if (monitor.isCanceled())
+                                return;
 
-            if (cmd == null)
-                return false;
+                            IURNDiagram target = it.next();
+                            monitor.subTask(name(target));
 
-            if (cmd.isEmpty()) {
+                            CompoundCommand cmd = target instanceof UCMmap ? layoutUcm((UCMmap) target) : layoutGeneric(target);
+                            if (cmd != null && !cmd.isEmpty() && cmd.canExecute())
+                                commands.add(cmd);
+
+                            monitor.worked(1);
+                        }
+                    } catch (Exception e) {
+                        failure[0] = e;
+                    } finally {
+                        monitor.done();
+                    }
+                }
+            });
+        } catch (Exception e) {
+            failure[0] = e;
+        }
+
+        try {
+            if (failure[0] != null)
+                throw failure[0];
+
+            if (commands.isEmpty()) {
                 MessageDialog.openWarning(getShell(), Messages.getString("AutoLayoutWizard.autoLayoutError"), //$NON-NLS-1$
                         Messages.getString("AutoLayoutWizard.nothingToPosition")); //$NON-NLS-1$
                 return false;
             }
 
-            if (cmd.canExecute())
-                editor.execute(cmd);
+            // Executed after the progress dialog closes, so a cancel leaves the model untouched
+            // rather than half laid out.
+            for (Iterator<CompoundCommand> it = commands.iterator(); it.hasNext();)
+                editor.execute(it.next());
 
         } catch (Exception e) {
             Status status = new Status(IStatus.ERROR, "seg.jUCMNav", 1, e.toString(), e); //$NON-NLS-1$
@@ -206,7 +262,7 @@ public class AutoLayoutWizard extends Wizard {
         if (plain.length() == 0)
             return null;
 
-        return positionsToCommands(map, placeUcm(decomposition, new PlainLayout(plain)));
+        return commandsFor(map, placeUcm(decomposition, new PlainLayout(plain)));
     }
 
     /**
@@ -268,14 +324,20 @@ public class AutoLayoutWizard extends Wizard {
 
     // ------------------------------------------------------------------ GRL and anything else
 
-    private CompoundCommand layoutGeneric() throws Exception {
+    private CompoundCommand layoutGeneric(IURNDiagram target) throws Exception {
         addIntentionalElemRefDimensions();
 
-        String plain = autoLayoutDotString(ExportLayoutDOT.convertURNToDot(diagram));
+        String plain = autoLayoutDotString(ExportLayoutDOT.convertURNToDot(target));
         if (plain.length() == 0)
             return null;
 
-        return repositionLayout(diagram, plain);
+        return repositionLayout(target, plain);
+    }
+
+    /** A diagram's name, for the progress dialog. */
+    private static String name(IURNDiagram target) {
+        String named = target instanceof URNmodelElement ? ((URNmodelElement) target).getName() : null;
+        return named == null || named.length() == 0 ? String.valueOf(target) : named;
     }
 
     /**
@@ -295,7 +357,7 @@ public class AutoLayoutWizard extends Wizard {
                 positions.put(node, toDiagram(placed.x, placed.y, layout));
         }
 
-        return positionsToCommands(urndiagram, positions);
+        return commandsFor(urndiagram, positions);
     }
 
     // ------------------------------------------------------------------------------- shared
@@ -305,7 +367,7 @@ public class AutoLayoutWizard extends Wizard {
         return new Point((int) Math.round(x) + PADDING, (int) Math.round(layout.getHeight() - y) + PADDING);
     }
 
-    private static CompoundCommand positionsToCommands(IURNDiagram diagram, Map<IURNNode, Point> positions) {
+    public static CompoundCommand commandsFor(IURNDiagram diagram, Map<IURNNode, Point> positions) {
         CompoundCommand cmd = new CompoundCommand();
 
         for (Iterator<?> it = diagram.getContRefs().iterator(); it.hasNext();) {

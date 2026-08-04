@@ -1,13 +1,11 @@
 package seg.jUCMNav.importexport;
 
 import java.util.Iterator;
-import java.util.List;
 
 import seg.jUCMNav.model.util.UcmPathDecomposition;
 import seg.jUCMNav.views.preferences.AutoLayoutPreferences;
 import ucm.map.PathNode;
 import ucm.map.UCMmap;
-import urncore.IURNContainerRef;
 import urncore.URNmodelElement;
 
 /**
@@ -21,10 +19,22 @@ import urncore.URNmodelElement;
  * assignment then dictates the spacing of nodes whose spacing is what decides how the curve looks.
  *
  * <p>
- * This emits the contracted graph instead: the junctions from {@link UcmPathDecomposition}, the
- * component clusters, and <b>one edge per chain</b> carrying a {@code minlen} proportional to how
- * many nodes have to fit along it. Graphviz then solves a small problem well, and the chain
- * interiors are placed afterwards by {@code ChainPlacement} along the route it chose.
+ * So this emits the contracted graph: the junctions from {@link UcmPathDecomposition} and
+ * <b>one edge per chain</b>, carrying a {@code minlen} proportional to how many nodes have to fit
+ * along it. The chain interiors are placed afterwards by {@code ChainPlacement} along the route
+ * Graphviz chose.
+ *
+ * <p>
+ * <b>Components are deliberately not clusters.</b> That reads like an omission and is the single
+ * biggest thing separating a tangle from a diagram. A Graphviz cluster is a tight box that its
+ * members are packed into, but a UCM component is a <i>band</i>: in the reporter's own model the
+ * Triage Team spans 1681 pixels, from the second node of the path to the second-to-last, because
+ * the team takes part at several points. Force those members into a box and the path has to leave
+ * and re-enter it at every one of them, which is exactly the crossing tangle that came out.
+ * Rendered side by side, dropping the clusters is the difference between a knot and a clean
+ * left-to-right flow with a symmetric fork/join. Nothing is lost by it either, because a
+ * component's rectangle is derived from where its nodes land rather than dictated to Graphviz --
+ * so it becomes the band it should have been.
  *
  * @author Claude
  */
@@ -35,8 +45,6 @@ public class ExportContractedDOT {
 
     /** Even an empty chain needs its two junctions kept apart. */
     private static final int MIN_RANK_SEPARATION = 1;
-
-    private static int cheapTrick = 0;
 
     public static String convert(UCMmap map, UcmPathDecomposition decomposition) {
         StringBuffer dot = new StringBuffer();
@@ -50,17 +58,8 @@ public class ExportContractedDOT {
         // the chain interiors would inherit the corners instead of curving around them.
         dot.append("splines=\"spline\";\nnodesep=\"0.6\";\nranksep=\"0.6\";\n"); //$NON-NLS-1$
 
-        for (Iterator<?> it = map.getContRefs().iterator(); it.hasNext();) {
-            IURNContainerRef ref = (IURNContainerRef) it.next();
-            if (ref.getParent() == null)
-                cluster(ref, decomposition, dot);
-        }
-
-        for (Iterator<PathNode> it = decomposition.getJunctions().iterator(); it.hasNext();) {
-            PathNode pn = it.next();
-            if (pn.getContRef() == null)
-                dot.append(node(pn));
-        }
+        for (Iterator<PathNode> it = decomposition.getJunctions().iterator(); it.hasNext();)
+            dot.append(node(it.next()));
 
         for (Iterator<UcmPathDecomposition.Chain> it = decomposition.getChains().iterator(); it.hasNext();) {
             UcmPathDecomposition.Chain chain = it.next();
@@ -79,50 +78,6 @@ public class ExportContractedDOT {
 
         dot.append("}\n"); //$NON-NLS-1$
         return dot.toString();
-    }
-
-    private static void cluster(IURNContainerRef ref, UcmPathDecomposition decomposition, StringBuffer dot) {
-        dot.append("subgraph " + AutoLayoutPreferences.CONTAINERPREFIX + ((URNmodelElement) ref).getId() + " {\n"); //$NON-NLS-1$ //$NON-NLS-2$
-
-        // A cluster holding nothing collapses, taking the component with it, so an empty one gets a
-        // small invisible occupant. It is deliberately NOT sized from the component's current
-        // bounds, which is what the old exporter did: a component 1681px wide became a 23-inch
-        // invisible blob the whole drawing had to be laid out around. On the sample map that habit
-        // alone cost a factor of seven in area -- 2847x754 points against 1606x192 -- and bought
-        // nothing, since a component's new rectangle is derived from where its nodes end up rather
-        // than from where it used to be.
-        if (!holdsAJunction(ref, decomposition))
-            dot.append("CheapTrick" + cheapTrick++ + " [label=\"\", style=\"invis\", width=\"0.8\", height=\"0.5\"];\n"); //$NON-NLS-1$ //$NON-NLS-2$
-
-        for (Iterator<?> it = ref.getChildren().iterator(); it.hasNext();) {
-            Object child = it.next();
-            if (child instanceof IURNContainerRef)
-                cluster((IURNContainerRef) child, decomposition, dot);
-        }
-
-        for (Iterator<?> it = ref.getNodes().iterator(); it.hasNext();) {
-            Object node = it.next();
-            // Only junctions are placed by Graphviz, so only they belong in the cluster. A
-            // pass-through inside a component is a junction by definition -- see
-            // UcmPathDecomposition.isJunction -- precisely so that it stays in its component.
-            if (node instanceof PathNode && decomposition.getJunctions().contains(node))
-                dot.append(node((PathNode) node));
-        }
-
-        dot.append("}\n"); //$NON-NLS-1$
-    }
-
-    private static boolean holdsAJunction(IURNContainerRef ref, UcmPathDecomposition decomposition) {
-        for (Iterator<?> it = ref.getNodes().iterator(); it.hasNext();) {
-            if (decomposition.getJunctions().contains(it.next()))
-                return true;
-        }
-        for (Iterator<?> it = ref.getChildren().iterator(); it.hasNext();) {
-            Object child = it.next();
-            if (child instanceof IURNContainerRef && holdsAJunction((IURNContainerRef) child, decomposition))
-                return true;
-        }
-        return false;
     }
 
     private static String node(PathNode pn) {

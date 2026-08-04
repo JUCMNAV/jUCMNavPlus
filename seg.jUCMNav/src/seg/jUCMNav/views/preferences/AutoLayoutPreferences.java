@@ -15,14 +15,23 @@ public class AutoLayoutPreferences {
 	public final static String DEFAULTDOTPATH = "c:\\program files\\ATT\\GraphViz\\bin\\dot.exe"; //$NON-NLS-1$
 	public final static String DEFAULTNONWINDOWSDOTPATH = ""; //$NON-NLS-1$
 	public final static double DEFAULTHEIGHT = 11;
-	public final static String DEFAULTORIENTATION = "TB"; //$NON-NLS-1$
+	/**
+	 * Left to right, because that is how a use case map is drawn: a path runs across the page from
+	 * its start point to its end point. Top-to-bottom was the old default and turns the same model
+	 * into a column. Rendered side by side on the reporter's model, LR is the difference between a
+	 * readable flow and a tangle.
+	 */
+	public final static String DEFAULTORIENTATION = "LR"; //$NON-NLS-1$
 	public final static double DEFAULTWIDTH = 8.5;
 	public final static boolean DEFAULTEMPTYPOINTS = true;
+	/** Lay out only the diagram you are looking at, unless asked otherwise. */
+	public final static boolean DEFAULTALLDIAGRAMS = false;
 	public final static String PREF_DOTPATH = "seg.jUCMNav.AutoLayout.DotPath"; //$NON-NLS-1$
 	public final static String PREF_HEIGHT = "seg.jUCMNav.AutoLayout.Height"; //$NON-NLS-1$
 	public final static String PREF_ORIENTATION = "seg.jUCMNav.AutoLayout.Orientation"; //$NON-NLS-1$
 	public final static String PREF_WIDTH = "seg.jUCMNav.AutoLayout.Width"; //$NON-NLS-1$
 	public final static String PREF_EMPTYPOINTS = "seg.jUCMNav.AutoLayout.EmptyPoints"; //$NON-NLS-1$
+	public final static String PREF_ALLDIAGRAMS = "seg.jUCMNav.AutoLayout.AllDiagrams"; //$NON-NLS-1$
 	public final static String URNODEPREFIX = "UrnNode"; //$NON-NLS-1$
 	public final static String DIAGPREFIX = "UrnDiag"; //$NON-NLS-1$
 	// must start with cluster if we want them rendered.
@@ -52,6 +61,7 @@ public class AutoLayoutPreferences {
 		getPreferenceStore().setDefault(AutoLayoutPreferences.PREF_WIDTH, AutoLayoutPreferences.DEFAULTWIDTH);
 		getPreferenceStore().setDefault(AutoLayoutPreferences.PREF_HEIGHT, AutoLayoutPreferences.DEFAULTHEIGHT);
 		getPreferenceStore().setDefault(AutoLayoutPreferences.PREF_EMPTYPOINTS, AutoLayoutPreferences.DEFAULTEMPTYPOINTS);
+		getPreferenceStore().setDefault(AutoLayoutPreferences.PREF_ALLDIAGRAMS, AutoLayoutPreferences.DEFAULTALLDIAGRAMS);
 	}
 
 	/**
@@ -122,6 +132,15 @@ public class AutoLayoutPreferences {
 	 * 
 	 * @return should our empty points be manipulated during the transformation
 	 */
+	/** Whether to lay out every diagram in the model rather than just the current one. */
+	public static boolean getAllDiagrams() {
+		return getPreferenceStore().getBoolean(PREF_ALLDIAGRAMS);
+	}
+
+	public static void setAllDiagrams(boolean b) {
+		getPreferenceStore().setValue(PREF_ALLDIAGRAMS, b);
+	}
+
 	public static boolean getEmptyPoints() {
 		return getPreferenceStore().getBoolean(PREF_EMPTYPOINTS);
 	}
