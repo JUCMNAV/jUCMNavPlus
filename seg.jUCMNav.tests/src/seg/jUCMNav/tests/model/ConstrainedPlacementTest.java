@@ -45,7 +45,7 @@ import urncore.URNmodelElement;
  * <p>
  * {@link LayoutObjective} exists so that a change to the layout is an argument about a number
  * instead of about a screenshot. This is the class that cashes that in: every claim below is a
- * comparison against either the map a person drew or the pipeline being replaced, and the constants
+ * comparison against either the map PM4Py-UCM drew or the pipeline being replaced, and the constants
  * in {@link ConstrainedPlacement} were chosen by running this, not by reasoning about forces.
  *
  * @author Claude
@@ -79,7 +79,7 @@ public class ConstrainedPlacementTest {
      * The test the redesign exists to pass.
      *
      * <p>
-     * The pipeline on issue #30 scores 22.08 against the hand-drawn map's 17.98, and loses on the
+     * The pipeline on issue #30 scores 22.08 against PM4Py-UCM's layout's 17.98, and loses on the
      * component term alone -- free placement draws good paths and terrible components. A
      * replacement that does not beat 22.08 is not a replacement.
      */
@@ -96,12 +96,12 @@ public class ConstrainedPlacementTest {
 
         System.out.println("objective, solver    : " + solved + " | crossings " + crossings(d, solve(d, sizes))); //$NON-NLS-1$ //$NON-NLS-2$
         System.out.println("objective, pipeline  : " + pipeline + " | crossings " + crossings(d, pipeline(d))); //$NON-NLS-1$ //$NON-NLS-2$
-        System.out.println("objective, hand-drawn: " + hand + " | crossings " + crossings(d, storedPositions())); //$NON-NLS-1$ //$NON-NLS-2$
+        System.out.println("objective, pm4py-ucm: " + hand + " | crossings " + crossings(d, storedPositions())); //$NON-NLS-1$ //$NON-NLS-2$
 
         // Crossings are not in the objective and that is exactly why they are asserted separately:
         // a solver free to spend its gains on them will, and the drawing becomes unreadable while
-        // every number improves. The hand-drawn map is the bar.
-        assertTrue("the solver must not cross paths more than the person did: " //$NON-NLS-1$
+        // every number improves. The PM4Py-UCM map is the bar.
+        assertTrue("the solver must not cross paths more than PM4Py-UCM did: " //$NON-NLS-1$
                 + crossings(d, solve(d, sizes)) + " against " + crossings(d, storedPositions()), //$NON-NLS-1$
                 crossings(d, solve(d, sizes)) <= crossings(d, storedPositions()));
 
@@ -115,9 +115,9 @@ public class ConstrainedPlacementTest {
         assertTrue("components must be tighter than the pipeline's: " + solved.sprawl + " against " + pipeline.sprawl, //$NON-NLS-1$ //$NON-NLS-2$
                 solved.sprawl < pipeline.sprawl);
 
-        // And the paths, which the pipeline already drew better than the person did, must not be
+        // And the paths, which the pipeline already drew better than PM4Py-UCM did, must not be
         // paid out to get there -- that trade is exactly the four-pass behaviour being replaced.
-        assertTrue("paths must stay at least as smooth as the hand-drawn map: " + solved.bending, //$NON-NLS-1$
+        assertTrue("paths must stay at least as smooth as PM4Py-UCM's layout: " + solved.bending, //$NON-NLS-1$
                 solved.bending <= hand.bending);
 
         // Under the calibrated weights the solver currently LOSES to the pipeline, and the reason
@@ -125,13 +125,13 @@ public class ConstrainedPlacementTest {
         // open defect, recorded here rather than asserted away.
         //
         // Read the calibrated total with care on this term, though. The weights come from the
-        // spread between the hand-drawn map and the same nodes scattered, and scattering over a
+        // spread between PM4Py-UCM's layout and the same nodes scattered, and scattering over a
         // large rectangle is simply not a bad case for overlap -- it produces 0.063 where a genuine
         // pile-up would produce far more. A narrow measured range gives overlap a weight of 17.33,
         // which is almost certainly too high. Fixing that means a worse-than-random calibration
         // sample for this term, not a nudged constant.
         System.out.println("calibrated totals -- solver " + round(solved.total()) //$NON-NLS-1$
-                + ", pipeline " + round(pipeline.total()) + ", hand-drawn " + round(hand.total())); //$NON-NLS-1$ //$NON-NLS-2$
+                + ", pipeline " + round(pipeline.total()) + ", PM4Py-UCM " + round(hand.total())); //$NON-NLS-1$ //$NON-NLS-2$
     }
 
     private static double round(double v) {
@@ -251,7 +251,7 @@ public class ConstrainedPlacementTest {
      * layout that collapsed towards a line would score beautifully on all of them -- no bending, no
      * component area, short edges -- and that is not a hypothetical failure: swimlane bands were
      * rejected on issue #30 for being legal but one-dimensional. So the aspect ratio is watched
-     * separately, against the map a person drew.
+     * separately, against the map PM4Py-UCM drew.
      */
     @Test
     public void doesNotCollapseTheDrawingToALine() throws Exception {
@@ -266,9 +266,9 @@ public class ConstrainedPlacementTest {
 
         System.out.println("drawing, solver    : " + solved + " aspect " + aspect(solved)); //$NON-NLS-1$ //$NON-NLS-2$
         System.out.println("drawing, pipeline  : " + pipe + " aspect " + aspect(pipe)); //$NON-NLS-1$ //$NON-NLS-2$
-        System.out.println("drawing, hand-drawn: " + hand + " aspect " + aspect(hand)); //$NON-NLS-1$ //$NON-NLS-2$
+        System.out.println("drawing, pm4py-ucm: " + hand + " aspect " + aspect(hand)); //$NON-NLS-1$ //$NON-NLS-2$
 
-        // A person drew this map at roughly 2:1. Ten times longer than it is tall is a strip, not a
+        // PM4Py-UCM drew this map at roughly 2:1. Ten times longer than it is tall is a strip, not a
         // map, whatever the objective says about it.
         assertTrue("the drawing must not collapse to a strip: aspect " + aspect(solved), aspect(solved) < 10.0); //$NON-NLS-1$
     }
@@ -300,7 +300,7 @@ public class ConstrainedPlacementTest {
 
         System.out.println("turns, solver    : " + turnProfile(d, solve(d, sizes))); //$NON-NLS-1$
         System.out.println("turns, pipeline  : " + turnProfile(d, pipeline(d))); //$NON-NLS-1$
-        System.out.println("turns, hand-drawn: " + turnProfile(d, storedPositions())); //$NON-NLS-1$
+        System.out.println("turns, pm4py-ucm: " + turnProfile(d, storedPositions())); //$NON-NLS-1$
     }
 
     /** Which boxes actually overlap, worst first -- the term the solver still loses on. */

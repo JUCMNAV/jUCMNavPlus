@@ -45,8 +45,8 @@ import urncore.URNmodelElement;
  * Two kinds of test here, and the split is deliberate. The arithmetic -- turn angles, intersection
  * areas, the four normalisations -- is checked on hand-made rectangles and polylines where the right
  * answer can be worked out on paper. Then the whole thing is checked against the one piece of ground
- * truth available: a map somebody drew by hand. A measure of drawing quality that cannot tell a
- * hand-drawn map from a scattering of nodes over the same area is not measuring drawing quality, and
+ * truth available: a layout from the reference implementation. A measure of drawing quality that cannot tell a
+ * PM4Py-UCM map from a scattering of nodes over the same area is not measuring drawing quality, and
  * every claim made on the strength of it afterwards would be worthless.
  *
  * <p>
@@ -197,9 +197,9 @@ public class AutoLayoutObjectiveTest {
      * <p>
      * Resist reading that against the "roughly 15% ink" recorded for IMS-2022 map 1 on issue #30:
      * that figure is ink over the whole drawing, and this term is content over one component's box.
-     * They are different fractions and a coincidence of wording. The hand-drawn baseline measured
-     * by {@link #theHandDrawnMapBeatsTheSameNodesScattered} is 15.05, so 6.7 here would be a
-     * <i>tighter</i> component than a person draws, not a pathological one.
+     * They are different fractions and a coincidence of wording. The PM4Py-UCM baseline measured
+     * by {@link #thePm4pyUcmLayoutBeatsTheSameNodesScattered} is 15.05, so 6.7 here would be a
+     * <i>tighter</i> component than PM4Py-UCM draws, not a pathological one.
      */
     @Test
     public void aNearlyEmptyComponentSprawls() {
@@ -310,7 +310,7 @@ public class AutoLayoutObjectiveTest {
      * The sample map's stored coordinates are where a person put those nodes. Scattering the same
      * nodes at random over the same rectangle is, by construction, a worse drawing of the same
      * model -- it is the null hypothesis for "this map is laid out at all". An objective that does
-     * not prefer the hand-drawn arrangement is measuring nothing, and any layout tuned to it would
+     * not prefer PM4Py-UCM's arrangement is measuring nothing, and any layout tuned to it would
      * be tuned to noise.
      *
      * <p>
@@ -318,7 +318,7 @@ public class AutoLayoutObjectiveTest {
      * four stopped working rather than just that the sum moved.
      */
     @Test
-    public void theHandDrawnMapBeatsTheSameNodesScattered() {
+    public void thePm4pyUcmLayoutBeatsTheSameNodesScattered() {
         UcmPathDecomposition d = new UcmPathDecomposition(sampleMap);
 
         Map<IURNNode, Point> drawn = storedPositions();
@@ -331,18 +331,18 @@ public class AutoLayoutObjectiveTest {
         assertTrue("and chains to measure", hand.segments > 0); //$NON-NLS-1$
 
         // The baseline every future attempt is measured against, printed rather than only asserted:
-        // a layout that scores worse than the hand-drawn map is not an improvement whatever it
+        // a layout that scores worse than PM4Py-UCM's layout is not an improvement whatever it
         // looks like, and these two lines are what makes that a fact rather than an impression.
-        System.out.println("objective, hand-drawn: " + hand); //$NON-NLS-1$
+        System.out.println("objective, pm4py-ucm: " + hand); //$NON-NLS-1$
         System.out.println("objective, scattered : " + scattered); //$NON-NLS-1$
 
-        assertTrue("hand-drawn paths must bend less: " + hand.bending + " against " + scattered.bending, //$NON-NLS-1$ //$NON-NLS-2$
+        assertTrue("PM4Py-UCM's paths must bend less: " + hand.bending + " against " + scattered.bending, //$NON-NLS-1$ //$NON-NLS-2$
                 hand.bending < scattered.bending);
-        assertTrue("hand-drawn components must sprawl less: " + hand.sprawl + " against " + scattered.sprawl, //$NON-NLS-1$ //$NON-NLS-2$
+        assertTrue("PM4Py-UCM's components must sprawl less: " + hand.sprawl + " against " + scattered.sprawl, //$NON-NLS-1$ //$NON-NLS-2$
                 hand.sprawl < scattered.sprawl);
-        assertTrue("hand-drawn labels must overlap less: " + hand.overlap + " against " + scattered.overlap, //$NON-NLS-1$ //$NON-NLS-2$
+        assertTrue("PM4Py-UCM's labels must overlap less: " + hand.overlap + " against " + scattered.overlap, //$NON-NLS-1$ //$NON-NLS-2$
                 hand.overlap < scattered.overlap);
-        assertTrue("hand-drawn nodes must sit closer: " + hand.spread + " against " + scattered.spread, //$NON-NLS-1$ //$NON-NLS-2$
+        assertTrue("PM4Py-UCM's nodes must sit closer: " + hand.spread + " against " + scattered.spread, //$NON-NLS-1$ //$NON-NLS-2$
                 hand.spread < scattered.spread);
 
         assertTrue("and so the total must be lower: " + hand + " against " + scattered, //$NON-NLS-1$ //$NON-NLS-2$
@@ -413,18 +413,18 @@ public class AutoLayoutObjectiveTest {
     }
 
     /**
-     * What the pipeline in the tree right now scores, against the map a person drew.
+     * What the pipeline in the tree right now scores, against the map PM4Py-UCM drew.
      *
      * <p>
      * The reason this class was written first. Every judgement about auto-layout so far has come
      * from looking at a PNG, and the four approaches on issue #30 were argued about for days each;
-     * this puts the current implementation and the hand-drawn original on the same axis, so the
+     * this puts the current implementation and the PM4Py-UCM original on the same axis, so the
      * redesign starts from a measured position rather than an impression of one.
      *
      * <p>
      * Deliberately asserts almost nothing. The bar it does enforce -- beat a random scattering of
      * the same nodes -- is one any layout worth running must clear, and it is not currently known
-     * whether the pipeline beats the hand-drawn map or by how much. Printing the comparison is the
+     * whether the pipeline beats PM4Py-UCM's layout or by how much. Printing the comparison is the
      * point; tightening it into an assertion is something to do once there is a target to hold.
      */
     @Test
@@ -459,7 +459,7 @@ public class AutoLayoutObjectiveTest {
         LayoutObjective.Score scattered = LayoutObjective.evaluate(d, scatter(storedPositions()), sizes);
 
         System.out.println("objective, pipeline  : " + pipeline); //$NON-NLS-1$
-        System.out.println("objective, hand-drawn: " + hand); //$NON-NLS-1$
+        System.out.println("objective, pm4py-ucm: " + hand); //$NON-NLS-1$
         System.out.println("objective, scattered : " + scattered); //$NON-NLS-1$
 
         assertTrue("auto-layout must at least beat scattering the nodes at random: " //$NON-NLS-1$
@@ -488,7 +488,7 @@ public class AutoLayoutObjectiveTest {
     }
 
     /**
-     * The same nodes, at random, over the same rectangle the hand-drawn map occupies.
+     * The same nodes, at random, over the same rectangle PM4Py-UCM's layout occupies.
      *
      * <p>
      * Fixed seed and an arithmetic generator rather than {@code Math.random}, so a failure is the

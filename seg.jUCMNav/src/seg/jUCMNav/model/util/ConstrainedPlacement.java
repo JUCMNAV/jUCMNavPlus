@@ -79,7 +79,7 @@ public class ConstrainedPlacement {
      * <p>
      * Above {@link LayoutObjective#NATURAL_SPACING} on purpose: at 60 the element-and-label boxes
      * of neighbouring nodes touch, so repulsion fights the springs and the drawing never settles.
-     * The hand-drawn sample sits at about 127. Measured across 60/90/120: 90 scores best.
+     * The PM4Py-UCM sample sits at about 127. Measured across 60/90/120: 90 scores best.
      */
     private static final double REST_SPACING = 120.0;
 
@@ -393,7 +393,7 @@ public class ConstrainedPlacement {
      * <p>
      * The solver moves junctions; a chain's interior is derived from them afterwards. So nothing
      * was keeping interiors off anything, and the objective counts them: label overlap came out at
-     * 0.053 against 0.005 for the hand-drawn map and 0.063 for nodes scattered at random -- which
+     * 0.053 against 0.005 for PM4Py-UCM's layout and 0.063 for nodes scattered at random -- which
      * is to say the interiors were colliding almost as badly as if they had been thrown down
      * anywhere. Visibly, two chains ran along the same line with one drawn on top of the other.
      *

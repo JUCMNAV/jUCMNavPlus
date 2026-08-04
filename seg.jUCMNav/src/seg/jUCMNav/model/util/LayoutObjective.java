@@ -61,11 +61,10 @@ import urncore.IURNNode;
 public class LayoutObjective {
 
     /**
-     * The gap a hand-drawn map leaves between consecutive nodes on a path, in pixels.
+     * The gap a well-drawn map leaves between consecutive nodes on a path, in pixels.
      *
      * <p>
-     * Only a unit: the spread term divides by it so that 1.0 reads as "as tight as a person would
-     * draw it" and 3.0 as "three times looser than it needs to be". Comparisons are between
+     * Only a unit: the spread term divides by it so that 1.0 reads as "as tight as a good layout draws it" and 3.0 as "three times looser than it needs to be". Comparisons are between
      * layouts of the same map, so the constant cancels; it is here to make the number mean
      * something on its own rather than to be exact.
      */
@@ -90,9 +89,8 @@ public class LayoutObjective {
          *
          * <p>
          * 1.0 is a floor, not a target: a component legitimately contains whitespace, since its
-         * nodes are strung along a path rather than packed. The hand-drawn issue-tracker sample
-         * measures <b>15.05</b>, and driving it below that would mean components tighter than a
-         * person draws them. Judge this against the hand-drawn baseline, never against 1.
+         * nodes are strung along a path rather than packed. The PM4Py-UCM issue-tracker sample
+         * measures <b>15.05</b>, and driving it below that would mean components tighter than PM4Py-UCM draws them. Judge this against the PM4Py-UCM baseline, never against 1.
          *
          * <p>
          * Note this is a ratio where issue #30 states the term as raw area. Raw area is not
@@ -208,11 +206,11 @@ public class LayoutObjective {
      *
      * <p>
      * All 1 until there is data to set them from, and <b>unit weights are not a neutral choice</b>
-     * -- the first measurement says so. On the issue-tracker sample, hand-drawn against the same
+     * -- the first measurement says so. On the issue-tracker sample, PM4Py-UCM's layout against the same
      * nodes scattered over the same rectangle:
      *
      * <pre>
-     *            hand-drawn   scattered   ratio
+     *            PM4Py-UCM   scattered   ratio
      *   bending      0.80        5.70      7.1x
      *   sprawl      15.05       26.27      1.7x
      *   overlap      0.005       0.063    12.5x
@@ -234,11 +232,11 @@ public class LayoutObjective {
          * <p>
          * So that a term contributes to the total in proportion to how much it actually
          * distinguishes drawings, rather than to how large its raw numbers happen to be. The
-         * calibration pair is the hand-drawn issue-tracker sample against the same nodes scattered
+         * calibration pair is the PM4Py-UCM issue-tracker sample against the same nodes scattered
          * over the same rectangle -- the two ends of the range this measure has to cover:
          *
          * <pre>
-         *              hand-drawn   scattered   spread   weight = 1/spread
+         *              PM4Py-UCM   scattered   spread   weight = 1/spread
          *   bending        0.80        5.70       4.90        0.204
          *   sprawl        15.05       26.27      11.22        0.089
          *   overlap        0.0050      0.0627     0.0577     17.33
@@ -248,7 +246,7 @@ public class LayoutObjective {
          *
          * <p>
          * Every figure above is measured, including the crossing row -- 1 crossing in the
-         * hand-drawn map against 73 in the scattered one. An earlier draft of this table carried a
+         * PM4Py-UCM map against 73 in the scattered one. An earlier draft of this table carried a
          * guessed crossing spread that was off by a factor of ten, which would have made the term
          * ten times too strong. The whole point of the exercise recorded in
          * {@code docs/auto-layout-objective.md} is that guessed numbers in an objective do not stay
@@ -554,7 +552,7 @@ public class LayoutObjective {
      *
      * <p>
      * Not one of the four terms on issue #30, and the omission turned out to matter: a solver that
-     * optimises only those four can beat the hand-drawn map on every one of them and still produce
+     * optimises only those four can beat PM4Py-UCM's layout on every one of them and still produce
      * a drawing nobody can follow, because it spends the freedom it gains on crossings that no term
      * charges it for. Graphviz's crossing minimisation had been quietly supplying this all along.
      *

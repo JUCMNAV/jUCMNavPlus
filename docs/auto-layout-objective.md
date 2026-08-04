@@ -18,15 +18,15 @@ looking hard at real models and at what the previous four attempts got wrong:
 ```
 
 `LayoutObjective` implements it. Before writing any solver, it was validated the
-obvious way: score the map a person drew by hand, then score the same nodes
-scattered at random over the same rectangle. Hand-drawn came out at **17.98**,
+obvious way: score the map PM4Py-UCM drew by hand, then score the same nodes
+scattered at random over the same rectangle. PM4Py-UCM came out at **17.98**,
 scattered at **41.76**, and every one of the four terms moved the right way. A
 measure that cannot tell those apart is measuring nothing, so this seemed like
 enough to build on.
 
 Then the solver was built to minimise exactly those four terms. It worked. It
 scored **10.29** — not merely better than the pipeline it replaced (22.08), but
-**43% better than the map a human being drew**.
+**43% better than the layout PM4Py-UCM itself produced**.
 
 The drawing was unreadable. Paths crossed each other repeatedly. Two branches of
 a fork were drawn on top of one another. Labels sat on labels. The left-to-right
@@ -59,7 +59,7 @@ written down, because they had never had to be.
 
 This is the part worth keeping.
 
-The objective was validated against **hand-drawn versus randomly scattered**.
+The objective was validated against **PM4Py-UCM's layout versus randomly scattered**.
 That test passes with a missing crossing term, and it passes comfortably,
 because random scattering is bad in all the ways the objective *does* measure —
 wild bending, sprawling component boxes, enormous edge lengths. The crossing
@@ -111,7 +111,7 @@ produced an error, a warning, or an obviously silly value.
 - `ConstrainedPlacement` gained a flow force, which keeps a step forward from
   going backwards. This is deliberately **not** the rank that every rejected
   approach imported: it forces no layers and no contiguity, only a direction.
-- `ConstrainedPlacementTest` asserts the crossing count against the hand-drawn
+- `ConstrainedPlacementTest` asserts the crossing count against the PM4Py-UCM
   map directly, not only through the weighted total, so this specific failure
   cannot come back quietly.
 
