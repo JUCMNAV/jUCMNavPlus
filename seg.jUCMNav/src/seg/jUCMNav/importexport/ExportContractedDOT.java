@@ -2,6 +2,9 @@ package seg.jUCMNav.importexport;
 
 import java.util.Iterator;
 
+import org.eclipse.draw2d.geometry.Dimension;
+
+import seg.jUCMNav.model.util.LabelExtent;
 import seg.jUCMNav.model.util.UcmPathDecomposition;
 import seg.jUCMNav.views.preferences.AutoLayoutPreferences;
 import ucm.map.PathNode;
@@ -25,24 +28,18 @@ import urncore.URNmodelElement;
  * Graphviz chose.
  *
  * <p>
- * <b>Components are clusters, because a UCM component is a two-dimensional box.</b> It has a
- * position and a size, it nests, and the rules say it must not overlap another and must contain
- * exactly the nodes bound to it. A Graphviz cluster is the same shape of thing, and it satisfies
- * both rules by construction -- measured against jUCMNav's own OCL layout rules, the reporter's map
- * comes out with zero violations.
+ * <b>Components are not clusters.</b> A UCM component is a two-dimensional box, and a cluster is
+ * the same shape of thing, but a cluster also packs its members into adjacent ranks -- a constraint
+ * URN does not impose. A component acting at several points along a path then forces the path to
+ * leave and re-enter it, which is a tangle. So nodes are placed freely here and the boxes they
+ * imply are separated afterwards by {@code ComponentSeparation}, which enforces the actual rule and
+ * nothing more. Clusters remain available behind {@code -Djucmnav.layout.clusters=true} as the
+ * measured alternative they are.
  *
  * <p>
- * Two alternatives were tried and measured on that map. Emitting no clusters at all draws a clean
- * left-to-right flow but is <i>illegal</i>: twelve rule violations, components overlapping and
- * seven path nodes inside a component that does not perform them. Forcing each component into a
- * horizontal band is legal but throws away a dimension -- it is a BPMN swimlane, not a UCM
- * component -- and the path then dives from band to band.
- *
- * <p>
- * Clusters are legal and keep both dimensions, at the cost of a tangle: dot additionally packs a
- * cluster's members into adjacent ranks, a constraint UCM does not impose, so a path visiting a
- * component at several points has to leave and re-enter it. That extra constraint, not the box, is
- * what remains to be removed -- see #30.
+ * Nodes are sized by what the element and its <b>label</b> occupy together. A flat size regardless
+ * of the name asks Graphviz to reserve no room for text it was never shown, and the labels then
+ * land on each other, on the path, and across component boundaries.
  *
  * @author Claude
  */
@@ -53,6 +50,9 @@ public class ExportContractedDOT {
 
     /** Even an empty chain needs its two junctions kept apart. */
     private static final int MIN_RANK_SEPARATION = 1;
+
+    /** How big a junction figure is drawn, before its label is allowed for. */
+    private static final int NODE_FIGURE = 25;
 
     public static String convert(UCMmap map, UcmPathDecomposition decomposition) {
         StringBuffer dot = new StringBuffer();
@@ -132,7 +132,14 @@ public class ExportContractedDOT {
 
     private static String node(PathNode pn, boolean onSpine) {
         String group = onSpine ? ", group=\"spine\"" : ""; //$NON-NLS-1$ //$NON-NLS-2$
-        return name(pn) + " [label=\"\", fixedsize=\"true\", width=\"0.35\", height=\"0.35\"" + group + "];\n"; //$NON-NLS-1$ //$NON-NLS-2$
+
+        // Sized by what the element and its label occupy together. Sending a flat 0.35 inches
+        // regardless of the name asked Graphviz to reserve no room for text it was never shown,
+        // and the labels then landed on each other, on the path, and across component boundaries.
+        Dimension extent = LabelExtent.including((URNmodelElement) pn, new Dimension(NODE_FIGURE, NODE_FIGURE));
+
+        return name(pn) + " [label=\"\", fixedsize=\"true\", width=\"" + (extent.width / 72.0) //$NON-NLS-1$
+                + "\", height=\"" + (extent.height / 72.0) + "\"" + group + "];\n"; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
     }
 
     private static String node(PathNode pn) {
