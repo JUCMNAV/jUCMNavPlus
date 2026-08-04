@@ -213,6 +213,56 @@ public class UcmPathDecomposition {
         return backEdges.contains(chain);
     }
 
+    /**
+     * The longest run of junctions from a path beginning to a path end, ignoring loop back edges.
+     *
+     * <p>
+     * This is the line a reader follows, and in a hand-drawn map it is straight with everything
+     * else arranged around it. Told which junctions form it, Graphviz can be asked to keep them
+     * colinear and bend the side branches instead; without it there is nothing in a contracted
+     * graph to prefer one route through the map over another, and the drawing wanders.
+     */
+    public Set<PathNode> getSpine() {
+        Set<PathNode> spine = new LinkedHashSet<PathNode>();
+        List<PathNode> best = new ArrayList<PathNode>();
+
+        for (Iterator<PathNode> it = junctions.iterator(); it.hasNext();) {
+            PathNode start = it.next();
+            if (!start.getPred().isEmpty())
+                continue;
+
+            List<PathNode> route = longestFrom(start, new LinkedHashSet<PathNode>());
+            if (route.size() > best.size())
+                best = route;
+        }
+
+        spine.addAll(best);
+        return spine;
+    }
+
+    private List<PathNode> longestFrom(PathNode at, Set<PathNode> visiting) {
+        List<PathNode> best = new ArrayList<PathNode>();
+        if (!visiting.add(at))
+            return best;
+
+        for (int i = 0; i < chains.size(); i++) {
+            Chain chain = chains.get(i);
+            if (chain.getFrom() != at || backEdges.contains(chain) || !(chain.getTo() instanceof PathNode))
+                continue;
+
+            List<PathNode> onward = longestFrom((PathNode) chain.getTo(), visiting);
+            if (onward.size() > best.size())
+                best = onward;
+        }
+
+        visiting.remove(at);
+
+        List<PathNode> route = new ArrayList<PathNode>();
+        route.add(at);
+        route.addAll(best);
+        return route;
+    }
+
     /** The nodes Graphviz is asked to place. */
     public Set<PathNode> getJunctions() {
         return Collections.unmodifiableSet(junctions);

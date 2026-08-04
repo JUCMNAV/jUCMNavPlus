@@ -295,7 +295,7 @@ public class AutoLayoutWizard extends Wizard {
         // Components are separated before the chains are routed, not after, so the routes can be
         // taken round the boxes in their final places. Only the junctions exist at this point,
         // which is all a component's rectangle is made of anyway.
-        ComponentSeparation.apply(positions, extentsOf(positions), COMPONENT_MARGIN);
+        if (!"true".equals(System.getProperty("jucmnav.layout.noseparation"))) ComponentSeparation.apply(positions, extentsOf(positions), COMPONENT_MARGIN);
         Map<Object, Rectangle> boxes = componentBoxes(positions);
 
         for (Iterator<UcmPathDecomposition.Chain> it = decomposition.getChains().iterator(); it.hasNext();) {
@@ -485,7 +485,7 @@ public class AutoLayoutWizard extends Wizard {
         // only requires that containers not overlap and that nothing unbound be drawn inside one --
         // it does not require a container's members to occupy adjacent ranks, which is the extra
         // constraint a Graphviz cluster adds and the reason clusters tangled the path.
-        ComponentSeparation.apply(positions, extents, COMPONENT_MARGIN);
+        if (!"true".equals(System.getProperty("jucmnav.layout.noseparation"))) ComponentSeparation.apply(positions, extents, COMPONENT_MARGIN);
 
         CompoundCommand cmd = new CompoundCommand();
 

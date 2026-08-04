@@ -75,10 +75,18 @@ public class ExportContractedDOT {
             }
         }
 
+        // The spine -- the longest run from a start point to an end point -- is what a reader
+        // follows, and in a hand-drawn map it is a straight line with everything else arranged
+        // around it. group= asks dot to keep those junctions colinear; weight asks it to keep the
+        // edges between them short and straight, at the expense of bending the side branches
+        // instead. Without it dot has no reason to prefer any one route through the graph, which
+        // is why the path wandered.
+        java.util.Set<PathNode> spine = decomposition.getSpine();
+
         for (Iterator<PathNode> it = decomposition.getJunctions().iterator(); it.hasNext();) {
             PathNode pn = it.next();
             if (!clusters || pn.getContRef() == null)
-                dot.append(node(pn));
+                dot.append(node(pn, spine.contains(pn)));
         }
 
         for (Iterator<UcmPathDecomposition.Chain> it = decomposition.getChains().iterator(); it.hasNext();) {
@@ -116,6 +124,11 @@ public class ExportContractedDOT {
                 dot.append(node((PathNode) n));
         }
         dot.append("}\n"); //$NON-NLS-1$
+    }
+
+    private static String node(PathNode pn, boolean onSpine) {
+        String group = onSpine ? ", group=\"spine\"" : ""; //$NON-NLS-1$ //$NON-NLS-2$
+        return name(pn) + " [label=\"\", fixedsize=\"true\", width=\"0.35\", height=\"0.35\"" + group + "];\n"; //$NON-NLS-1$ //$NON-NLS-2$
     }
 
     private static String node(PathNode pn) {
