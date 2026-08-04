@@ -54,6 +54,9 @@ public class ExportContractedDOT {
     /** How big a junction figure is drawn, before its label is allowed for. */
     private static final int NODE_FIGURE = 25;
 
+    /** Roughly how many points one rank of separation buys, at the ranksep set below. */
+    private static final int RANK_POINTS = 43;
+
     public static String convert(UCMmap map, UcmPathDecomposition decomposition) {
         StringBuffer dot = new StringBuffer();
         String id = ((URNmodelElement) map).getId();
@@ -98,7 +101,19 @@ public class ExportContractedDOT {
             if (!(chain.getFrom() instanceof PathNode) || !(chain.getTo() instanceof PathNode))
                 continue;
 
-            int room = MIN_RANK_SEPARATION + chain.length() * NODES_PER_RANK;
+            // Room is asked for in the width the chain's contents actually need, not in how many
+            // of them there are. A chain of one responsibility called "lookFollowUpLaboratoryTest"
+            // needs far more room than a chain of three called "a", "b", "c", and asking by count
+            // is why a long name lands on top of the start and end labels either side of it: the
+            // interior is distributed along the route by arc length, so if the route is short the
+            // labels overlap however evenly they are spread.
+            int needed = 0;
+            for (Iterator<PathNode> interior = chain.getInterior().iterator(); interior.hasNext();) {
+                PathNode pn = interior.next();
+                needed += LabelExtent.including((URNmodelElement) pn, new Dimension(NODE_FIGURE, NODE_FIGURE)).width;
+            }
+
+            int room = Math.max(MIN_RANK_SEPARATION + chain.length() * NODES_PER_RANK, needed / RANK_POINTS);
 
             // A loop's back edge is routed but not ranked. Ranking it would drag its target below
             // its source and stretch the drawing to satisfy an order that cannot hold.
