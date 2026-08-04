@@ -6,15 +6,20 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.StringReader;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Status;
+import org.eclipse.draw2d.geometry.Point;
+import org.eclipse.draw2d.geometry.PointList;
 import org.eclipse.gef.EditPart;
 import org.eclipse.gef.NodeEditPart;
-import org.eclipse.gef.commands.Command;
 import org.eclipse.gef.commands.CompoundCommand;
 import org.eclipse.jface.dialogs.ErrorDialog;
 import org.eclipse.jface.dialogs.MessageDialog;
@@ -25,366 +30,345 @@ import seg.jUCMNav.Messages;
 import seg.jUCMNav.editors.UCMNavMultiPageEditor;
 import seg.jUCMNav.editors.UrnEditor;
 import seg.jUCMNav.editparts.IntentionalElementEditPart;
+import seg.jUCMNav.importexport.ExportContractedDOT;
 import seg.jUCMNav.importexport.ExportLayoutDOT;
-import seg.jUCMNav.model.ModelCreationFactory;
+import seg.jUCMNav.importexport.PlainLayout;
 import seg.jUCMNav.model.commands.changeConstraints.SetConstraintBoundContainerRefCompoundCommand;
 import seg.jUCMNav.model.commands.changeConstraints.SetConstraintCommand;
 import seg.jUCMNav.model.commands.changeConstraints.SetConstraintContainerRefCommand;
-import seg.jUCMNav.model.commands.transformations.SplitLinkCommand;
-import seg.jUCMNav.model.commands.transformations.TrimEmptyNodeCommand;
 import seg.jUCMNav.model.util.AutoLayoutCommandComparator;
+import seg.jUCMNav.model.util.ChainPlacement;
 import seg.jUCMNav.model.util.MetadataHelper;
-import seg.jUCMNav.model.util.URNElementFinder;
+import seg.jUCMNav.model.util.UcmPathDecomposition;
 import seg.jUCMNav.views.preferences.AutoLayoutPreferences;
-import ucm.map.EmptyPoint;
-import ucm.map.NodeConnection;
 import ucm.map.PathNode;
 import ucm.map.UCMmap;
-import urncore.IURNConnection;
 import urncore.IURNContainerRef;
 import urncore.IURNDiagram;
 import urncore.IURNNode;
 import urncore.URNmodelElement;
 
 /**
- * The autolayout wizard. Uses graphviz dot.
- * 
- * Code was originally created for UCMs only but was modified to support GRL.
- * 
- * @author jkealey
- * 
+ * The autolayout wizard.
+ *
+ * <p>
+ * Graphviz is asked for the topology and nothing else. For a UCM map it is not even shown the whole
+ * map: {@link UcmPathDecomposition} contracts each run of pass-through nodes to a single edge, so
+ * what goes over is the junctions -- forks, joins, stubs, path ends, and anything a component holds
+ * -- plus the component clusters. A 200-node map becomes a fifteen-node problem, which is the size
+ * Graphviz's crossing minimisation is actually good at.
+ *
+ * <p>
+ * The interior of each chain is then placed here, by {@link ChainPlacement}, evenly along the route
+ * Graphviz chose. That part has to be ours: a UCM path is drawn as an interpolating cubic spline
+ * through its nodes, so its shape is decided by their spacing and turn angle, neither of which a
+ * layered layout reasons about. Sampling Graphviz's own Bezier for bend points -- what this did
+ * before -- interpolated one spline through points taken off another, which is why paths bulged and
+ * looped.
+ *
+ * <p>
+ * Graphviz is read through {@code -Tplain}, a documented line-oriented format, rather than by
+ * scraping {@code -Tdot} with regexes pinned to releases from 2011. See #30.
+ *
+ * @author jkealey, Claude
  */
 public class AutoLayoutWizard extends Wizard {
 
-	private IURNDiagram diagram;
-	private UrnEditor editor;
-	public static final int PADDING = 50;
+    private IURNDiagram diagram;
+    private UrnEditor editor;
+    public static final int PADDING = 50;
 
-	public AutoLayoutWizard(UrnEditor editor, IURNDiagram map) {
-		this.diagram = map;
-		this.editor = editor;
-		AutoLayoutPreferences.createPreferences();
+    /** Breathing room between a component's boundary and the nodes it holds. */
+    private static final int COMPONENT_MARGIN = 30;
 
-	}
+    public AutoLayoutWizard(UrnEditor editor, IURNDiagram map) {
+        this.diagram = map;
+        this.editor = editor;
+        AutoLayoutPreferences.createPreferences();
+    }
 
-	/*
-	 * (non-Javadoc)
-	 * 
-	 * @see org.eclipse.jface.wizard.IWizard#addPages()
-	 */
-	public void addPages() {
-		addPage(new AutoLayoutDotSettingsWizardPage(Messages.getString("AutoLayoutWizard.dotConfig"))); //$NON-NLS-1$
+    public void addPages() {
+        addPage(new AutoLayoutDotSettingsWizardPage(Messages.getString("AutoLayoutWizard.dotConfig"))); //$NON-NLS-1$
+    }
 
-	}
+    /**
+     * Runs Graphviz over the given DOT source and returns its {@code -Tplain} output.
+     *
+     * The name is historical; callers outside this class pass the result to
+     * {@link #repositionLayout(IURNDiagram, String)}, and the pair stay consistent.
+     */
+    public String autoLayoutDotString(String initial) {
+        StringBuffer builder = new StringBuffer();
+        InputStream is = callDOT(initial.getBytes(), "plain"); //$NON-NLS-1$
+        if (is == null)
+            return ""; //$NON-NLS-1$
 
-	/**
-	 * @param initial
-	 */
-	public String autoLayoutDotString(String initial) {
-		String s = ""; //$NON-NLS-1$
-		StringBuffer builder = new StringBuffer();
-		InputStream is = callDOT(initial.getBytes(), "dot"); //$NON-NLS-1$
-		if (is != null) {
-			BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+        BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+        try {
+            String s;
+            while ((s = reader.readLine()) != null)
+                builder.append(s + "\n"); //$NON-NLS-1$
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                reader.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        return builder.toString();
+    }
 
-			try {
+    private synchronized InputStream callDOT(byte input_for_dot[], String output_format) {
+        InputStream istream = null;
+        String dot = AutoLayoutPreferences.locateDot();
+        if (dot == null) {
+            MessageDialog.openError(getShell(), Messages.getString("AutoLayoutWizard.autoLayoutError"), //$NON-NLS-1$
+                    Messages.getString("AutoLayoutWizard.graphvizNotFound")); //$NON-NLS-1$
+            return null;
+        }
 
-				while ((s = reader.readLine()) != null)
-					builder.append(s + "\n"); //$NON-NLS-1$
-			} catch (IOException e) {
-				e.printStackTrace();
-			} finally {
-				try {
-					reader.close();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			}
+        try {
+            Process p = Runtime.getRuntime().exec(new String[] { dot, "-T" + output_format }); //$NON-NLS-1$
+            OutputStream ostream = p.getOutputStream();
+            ostream.write(input_for_dot);
+            ostream.close();
+            istream = new BufferedInputStream(p.getInputStream());
+        } catch (Exception e) {
+            Status status = new Status(IStatus.ERROR, "seg.jUCMNav", 1, e.toString(), e); //$NON-NLS-1$
+            ErrorDialog.openError(getShell(), Messages.getString("AutoLayoutWizard.autoLayoutError"), //$NON-NLS-1$
+                    Messages.getString("AutoLayoutWizard.errorOccured"), //$NON-NLS-1$
+                    status, IStatus.ERROR | IStatus.WARNING);
+            return null;
+        }
+        return istream;
+    }
 
-		}
-		// System.out.println(builder.toString());
-		return builder.toString();
-	}
+    public boolean performFinish() {
+        try {
+            CompoundCommand cmd = diagram instanceof UCMmap ? layoutUcm((UCMmap) diagram) : layoutGeneric();
 
-	private synchronized InputStream callDOT(byte input_for_dot[], String image_type) {
-		InputStream istream = null;
-		String dot_command = AutoLayoutPreferences.getDotPath() + " -T" + image_type; //$NON-NLS-1$
-		try {
-			Process p = Runtime.getRuntime().exec(dot_command);
-			OutputStream ostream = p.getOutputStream();
-			ostream.write(input_for_dot);
-			ostream.close();
-			istream = new BufferedInputStream(p.getInputStream());
-		} catch (Exception e) {
-			Status status = new Status(IStatus.ERROR, "seg.jUCMNav", 1, e.toString(), e); //$NON-NLS-1$
-			ErrorDialog.openError(getShell(), Messages.getString("AutoLayoutWizard.autoLayoutError"), //$NON-NLS-1$
-					Messages.getString("AutoLayoutWizard.errorOccured"), //$NON-NLS-1$
-					status, IStatus.ERROR | IStatus.WARNING);
+            if (cmd == null)
+                return false;
 
-			return null;
-		}
-		return istream;
-	}
+            if (cmd.isEmpty()) {
+                MessageDialog.openWarning(getShell(), Messages.getString("AutoLayoutWizard.autoLayoutError"), //$NON-NLS-1$
+                        Messages.getString("AutoLayoutWizard.nothingToPosition")); //$NON-NLS-1$
+                return false;
+            }
 
-	/*
-	 * (non-Javadoc)
-	 * 
-	 * @see org.eclipse.jface.wizard.IWizard#performFinish()
-	 */
-	public boolean performFinish() {
+            if (cmd.canExecute())
+                editor.execute(cmd);
 
-		if (trimEmptyPoints() == false)
-			return false;
+        } catch (Exception e) {
+            Status status = new Status(IStatus.ERROR, "seg.jUCMNav", 1, e.toString(), e); //$NON-NLS-1$
+            ErrorDialog.openError(getShell(), Messages.getString("AutoLayoutWizard.autoLayoutError"), //$NON-NLS-1$
+                    Messages.getString("AutoLayoutWizard.repositioningError"), status, IStatus.ERROR | IStatus.WARNING); //$NON-NLS-1$
+            e.printStackTrace();
+            return false;
+        }
+        return true;
+    }
 
-		addIntentionalElemRefDimensions();
+    // ------------------------------------------------------------- UCM: the contracted layout
 
+    private CompoundCommand layoutUcm(UCMmap map) throws Exception {
+        UcmPathDecomposition decomposition = new UcmPathDecomposition(map);
 
-		String initial = ExportLayoutDOT.convertURNToDot(diagram);
-		String positioned = autoLayoutDotString(initial);
+        String plain = autoLayoutDotString(ExportContractedDOT.convert(map, decomposition));
+        if (plain.length() == 0)
+            return null;
 
-		System.out.println(initial);
-		System.out.println("***********************************************************************");
-		System.out.println(positioned);
-		
-		try {
-			CompoundCommand cmd2 = repositionLayout(diagram, positioned);
+        return positionsToCommands(map, placeUcm(decomposition, new PlainLayout(plain)));
+    }
 
-			if (cmd2.canExecute()) {
-				editor.execute(cmd2);
-			}
+    /**
+     * Where every node of a UCM map ends up: junctions where Graphviz put them, chain interiors
+     * spread along the route between.
+     *
+     * Separated from command building so it can be exercised on a real model without a workbench.
+     */
+    public static Map<IURNNode, Point> placeUcm(UcmPathDecomposition decomposition, PlainLayout layout) {
+        Map<IURNNode, Point> positions = new HashMap<IURNNode, Point>();
 
-		} catch (Exception e) {
-			Status status = new Status(IStatus.ERROR, "seg.jUCMNav", 1, e.toString(), e); //$NON-NLS-1$
-			ErrorDialog
-			.openError(
-					getShell(),
-					Messages.getString("AutoLayoutWizard.autoLayoutError"), Messages.getString("AutoLayoutWizard.repositioningError"), status, IStatus.ERROR | IStatus.WARNING); //$NON-NLS-1$ //$NON-NLS-2$
-			e.printStackTrace();
-			return false;
-		}
+        for (Iterator<PathNode> it = decomposition.getJunctions().iterator(); it.hasNext();) {
+            PathNode pn = it.next();
+            PlainLayout.Node placed = layout.getNode(AutoLayoutPreferences.URNODEPREFIX + ((URNmodelElement) pn).getId());
+            if (placed != null)
+                positions.put(pn, toDiagram(placed.x, placed.y, layout));
+        }
 
-		/*
-		 * if (trimEmptyPoints() == false) { return false; }
-		 */
+        for (Iterator<UcmPathDecomposition.Chain> it = decomposition.getChains().iterator(); it.hasNext();) {
+            UcmPathDecomposition.Chain chain = it.next();
+            if (chain.length() == 0)
+                continue;
 
-		return true;
-	}
+            Point from = positions.get(chain.getFrom());
+            Point to = positions.get(chain.getTo());
+            if (from == null || to == null)
+                continue;
 
-	public void addIntentionalElemRefDimensions() {
-		UCMNavMultiPageEditor multi = (UCMNavMultiPageEditor)PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage().getActiveEditor();
-		Collection<EditPart> editparts = ((UrnEditor)multi.getCurrentPage()).getGraphicalViewer().getEditPartRegistry().values();
+            PointList spread = ChainPlacement.distribute(routeOf(chain, layout, from, to), chain.length());
+            List<PathNode> interior = chain.getInterior();
+            for (int i = 0; i < interior.size() && i < spread.size(); i++)
+                positions.put(interior.get(i), spread.getPoint(i));
+        }
 
-		for (EditPart editPart : editparts){
+        return positions;
+    }
 
-			if (editPart instanceof NodeEditPart){
-				NodeEditPart nodeEditPart = (NodeEditPart)editPart;
+    /**
+     * The polyline a chain follows: Graphviz's route for the contracted edge when it gave one,
+     * otherwise the straight line between the two junctions.
+     *
+     * The ends are pinned to the junctions' own positions. Graphviz's spline stops at a node's
+     * boundary rather than its centre, and a chain that stops short of its junction puts a kink in
+     * the curve exactly where it shows most.
+     */
+    private static PointList routeOf(UcmPathDecomposition.Chain chain, PlainLayout layout, Point from, Point to) {
+        PointList route = new PointList();
+        route.addPoint(from);
 
-				if ( nodeEditPart instanceof IntentionalElementEditPart){
-					int height = nodeEditPart.getFigure().getBounds().height;
-					int width = nodeEditPart.getFigure().getBounds().width;
+        PlainLayout.Edge edge = layout.getEdge(AutoLayoutPreferences.URNODEPREFIX + ((URNmodelElement) chain.getFrom()).getId(),
+                AutoLayoutPreferences.URNODEPREFIX + ((URNmodelElement) chain.getTo()).getId());
+        if (edge != null)
+            for (int i = 0; i < edge.size(); i++)
+                route.addPoint(toDiagram(edge.xs[i], edge.ys[i], layout));
 
-					IURNNode node = (IURNNode) nodeEditPart.getModel();
+        route.addPoint(to);
+        return route;
+    }
 
-					MetadataHelper.addMetaData(node.getDiagram().getUrndefinition().getUrnspec(),
-							(URNmodelElement)node, "_height", String.valueOf(height));
-					MetadataHelper.addMetaData(node.getDiagram().getUrndefinition().getUrnspec(),
-							(URNmodelElement)node, "_width", String.valueOf(width));
-				}
-			}
-		}
+    // ------------------------------------------------------------------ GRL and anything else
 
-	}
+    private CompoundCommand layoutGeneric() throws Exception {
+        addIntentionalElemRefDimensions();
 
-	/**
-	 * @return success
-	 */
-	public boolean trimEmptyPoints() {
-		CompoundCommand cmd;
+        String plain = autoLayoutDotString(ExportLayoutDOT.convertURNToDot(diagram));
+        if (plain.length() == 0)
+            return null;
 
-		if (diagram instanceof UCMmap && AutoLayoutPreferences.getEmptyPoints()) {
-			cmd = new TrimEmptyNodeCommand((UCMmap) diagram);
-			if (cmd.canExecute()) {
-				editor.execute(cmd);
-			} else {
-				MessageDialog.openError(getShell(), Messages.getString("AutoLayoutWizard.error"), Messages.getString("AutoLayoutWizard.emptyNodeError")); //$NON-NLS-1$ //$NON-NLS-2$
-				return false;
-			}
-		}
-		return true;
-	}
+        return repositionLayout(diagram, plain);
+    }
 
-	public static CompoundCommand repositionLayout(IURNDiagram urndiagram, String positioned) throws Exception  {
-		positioned = positioned.replaceAll("\\\\n", ""); //$NON-NLS-1$ //$NON-NLS-2$
-		BufferedReader reader = new BufferedReader(new StringReader(positioned));
-		String line;
+    /**
+     * Applies a {@code -Tplain} layout to every node of a diagram it can find one for.
+     *
+     * Kept public and keyed on the diagram because {@code ShowLinkedElementInNewDiagramCommand} and
+     * the importers lay out a graph they have just built, without going through the wizard.
+     */
+    public static CompoundCommand repositionLayout(IURNDiagram urndiagram, String plain) throws Exception {
+        PlainLayout layout = new PlainLayout(plain);
+        Map<IURNNode, Point> positions = new HashMap<IURNNode, Point>();
 
-		CompoundCommand cmd = new CompoundCommand();
+        for (Iterator<?> it = urndiagram.getNodes().iterator(); it.hasNext();) {
+            IURNNode node = (IURNNode) it.next();
+            PlainLayout.Node placed = layout.getNode(AutoLayoutPreferences.URNODEPREFIX + ((URNmodelElement) node).getId());
+            if (placed != null)
+                positions.put(node, toDiagram(placed.x, placed.y, layout));
+        }
 
-		int pageHeight = 0;
-		while ((line = reader.readLine()) != null) {
+        return positionsToCommands(urndiagram, positions);
+    }
 
-			// ex: graph [bb="0,0,192,212"]; (for the digraph)
-			if (line.matches("\\s*digraph " + AutoLayoutPreferences.DIAGPREFIX + "\\d+\\s*\\{")) { //$NON-NLS-1$ //$NON-NLS-2$
-				IURNDiagram temp = URNElementFinder.findMap(urndiagram.getUrndefinition().getUrnspec(), line.substring(
-						line.indexOf(AutoLayoutPreferences.DIAGPREFIX) + AutoLayoutPreferences.DIAGPREFIX.length(), line.lastIndexOf('{')).trim());
-				if (!urndiagram.equals(temp)) {
-					throw new Exception(Messages.getString("AutoLayoutWizard.invalidMap") //$NON-NLS-1$
-							+ line.substring(line.indexOf(AutoLayoutPreferences.DIAGPREFIX) + AutoLayoutPreferences.DIAGPREFIX.length(), line.lastIndexOf('{'))
-							.trim() + Messages.getString("AutoLayoutWizard.verifyDotInput")); //$NON-NLS-1$
-				}
+    // ------------------------------------------------------------------------------- shared
 
-			} else if (line.matches("\\s*graph \\[bb=\"\\d+,\\d+,\\d+,\\d+\"\\];")) { //$NON-NLS-1$
-				// version 2.28
-				pageHeight = PADDING + Integer.parseInt(line.substring(line.lastIndexOf(",") + 1, line.lastIndexOf("\""))); //$NON-NLS-1$ //$NON-NLS-2$
-			} else if (line.matches("\\s*graph \\[bb=\"\\d+,\\d+,\\d+,\\d+\",")) { //$NON-NLS-1$
-				// version 2.38
-				line = line.substring(0, line.lastIndexOf(",")-1);
-				pageHeight = PADDING + Integer.parseInt(line.substring(line.lastIndexOf(",") + 1)); //$NON-NLS-1$ //$NON-NLS-2$
-			}else if (line.matches("\\s*subgraph " + AutoLayoutPreferences.CONTAINERPREFIX + "\\d+ \\{")) { // ex: //$NON-NLS-1$ //$NON-NLS-2$
-				// subgraph
-				// cluster_0
-				// {
+    /** Graphviz measures from the bottom left in points; the diagram measures from the top left. */
+    private static Point toDiagram(double x, double y, PlainLayout layout) {
+        return new Point((int) Math.round(x) + PADDING, (int) Math.round(layout.getHeight() - y) + PADDING);
+    }
 
-				IURNContainerRef contRef = URNElementFinder.findContainerRef(urndiagram, line.substring(
-						line.indexOf(AutoLayoutPreferences.CONTAINERPREFIX) + AutoLayoutPreferences.CONTAINERPREFIX.length(), line.lastIndexOf('{')).trim());
+    private static CompoundCommand positionsToCommands(IURNDiagram diagram, Map<IURNNode, Point> positions) {
+        CompoundCommand cmd = new CompoundCommand();
 
-				if (contRef == null)
-					throw new Exception(Messages.getString("AutoLayoutWizard.cantFindCompRef") //$NON-NLS-1$
-							+ line.substring(line.indexOf(AutoLayoutPreferences.CONTAINERPREFIX) + AutoLayoutPreferences.CONTAINERPREFIX.length(),
-									line.lastIndexOf('{')).trim() + Messages.getString("AutoLayoutWizard.inMap")); //$NON-NLS-1$
+        for (Iterator<?> it = diagram.getContRefs().iterator(); it.hasNext();) {
+            IURNContainerRef ref = (IURNContainerRef) it.next();
+            if (ref.getParent() == null)
+                resize(ref, positions, cmd);
+        }
 
-				line = reader.readLine();
-				if (line == null)
-					break;
-				// ex: graph [bb="0,0,192,212"];
-				if (line.matches("\\s*graph \\[bb=\"?[0-9]*(.[0-9]+)?,?[0-9]*(.[0-9]+)?,?[0-9]*(.[0-9]+)?,?[0-9]*(.[0-9]+)?\"];")) { //$NON-NLS-1$
-						String subline = line.substring(line.indexOf("\"") + 1, line.lastIndexOf("\"")); //$NON-NLS-1$ //$NON-NLS-2$
-						String[] coords = subline.split(","); //$NON-NLS-1$
-						// we've got lower left x, y, upper right x, y
-						Command resize = new SetConstraintBoundContainerRefCompoundCommand(contRef, PADDING + (int)Math.round(Double.parseDouble( coords[0])), pageHeight
-								- (int)Math.round(Double.parseDouble(coords[3])), (int)Math.round(Double.parseDouble(coords[2])) - (int)Math.round(Double.parseDouble(coords[0])), 
-								(int)Math.round(Double.parseDouble(coords[3])) - (int)Math.round(Double.parseDouble(coords[1])) - 10);
-						cmd.add(resize);
-						if (contRef.getParent() != null) {
-							SetConstraintContainerRefCommand cmd2 = 
-									new SetConstraintContainerRefCommand(contRef, 
-											PADDING + (int)Math.round(Double.parseDouble(coords[0])), 	// x position
-											pageHeight - (int)Math.round(Double.parseDouble(coords[3]))+ 40, // y position
-											(int)Math.round(Double.parseDouble(coords[2])) - (int)Math.round(Double.parseDouble(coords[0])), // width
-											(int)Math.round(Double.parseDouble(coords[3])) - (int)Math.round(Double.parseDouble(coords[1])) - 40);	//height
-							cmd.add(cmd2);
-						}
-				} else if (line.matches("\\s*graph \\[bb=\"\"];")) { // ex: //$NON-NLS-1$
-					// graph
-					// [bb=""];
+        for (Iterator<IURNNode> it = positions.keySet().iterator(); it.hasNext();) {
+            IURNNode node = it.next();
+            Point at = positions.get(node);
+            cmd.add(new SetConstraintCommand(node, at.x, at.y));
+        }
 
-					// don't know what to do with these.
-					System.out.println("empty containerref. don't know what to do with it."); //$NON-NLS-1$
-				}
-			} else if (line.matches("\\s*" + AutoLayoutPreferences.URNODEPREFIX + "\\d+ \\[pos=\"\\d+,\\d+\", width=\"?.+\"?, height=\"?.+\"?];") ||
-					line.matches("\\s*" + AutoLayoutPreferences.URNODEPREFIX + "\\d+ \\[height=\"?.+\"?, width=\"?.+\"?, pos=\"\\d+,\\d+\"];")) { //$NON-NLS-1$ //$NON-NLS-2$
-				// ex: UrnNode5 [pos="76,122", width="1.22", height="0.50"];
-				// for GraphViz v2.28
-				line = line.trim();
-				IURNNode pn = URNElementFinder.findNode(urndiagram, line.substring(AutoLayoutPreferences.URNODEPREFIX.length(), line.indexOf(" "))); //$NON-NLS-1$
+        // bug 304: container moves have to precede node moves.
+        Collections.sort(cmd.getCommands(), new AutoLayoutCommandComparator());
+        return cmd;
+    }
 
-				if (pn == null)
-					throw new Exception(
-							Messages.getString("AutoLayoutWizard.cantFindPathNode") + line.substring(AutoLayoutPreferences.URNODEPREFIX.length(), line.indexOf(" ")) //$NON-NLS-1$ //$NON-NLS-2$
-							+ Messages.getString("AutoLayoutWizard.inMap")); //$NON-NLS-1$
+    /**
+     * A component's rectangle, taken from what it holds rather than from Graphviz.
+     *
+     * {@code -Tplain} does not report cluster boxes, and deriving them is better anyway: the model
+     * requires containment to follow geometry, so a rectangle computed from the final positions of
+     * the nodes inside it is right by construction, where one copied from a cluster box has to be
+     * trusted to agree.
+     *
+     * @return the rectangle as {left, top, right, bottom}, or null when nothing inside was placed
+     */
+    private static int[] resize(IURNContainerRef ref, Map<IURNNode, Point> positions, CompoundCommand cmd) {
+        int left = Integer.MAX_VALUE, top = Integer.MAX_VALUE, right = Integer.MIN_VALUE, bottom = Integer.MIN_VALUE;
+        boolean any = false;
 
-				String subline;
+        for (Iterator<?> it = ref.getChildren().iterator(); it.hasNext();) {
+            Object child = it.next();
+            if (!(child instanceof IURNContainerRef))
+                continue;
 
-				if (line.matches("\\s*" + AutoLayoutPreferences.URNODEPREFIX + "\\d+ \\[pos=\"\\d+,\\d+\", width=\"?.+\"?, height=\"?.+\"?];")){
-					subline = line.substring(line.indexOf("\"") + 1, line.indexOf("\"", line.indexOf("\"") + 1)); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-				}else{
-					subline = line.substring(line.indexOf("pos=\"") + 5, line.lastIndexOf("]")-1); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-				}
-				String[] coords = subline.split(","); //$NON-NLS-1$
+            int[] inner = resize((IURNContainerRef) child, positions, cmd);
+            if (inner != null) {
+                left = Math.min(left, inner[0]);
+                top = Math.min(top, inner[1]);
+                right = Math.max(right, inner[2]);
+                bottom = Math.max(bottom, inner[3]);
+                any = true;
+            }
+        }
 
-				Command move = new SetConstraintCommand(pn, Integer.parseInt(coords[0]) + PADDING, pageHeight - Integer.parseInt(coords[1]));
-				cmd.add(move);
-			} else if ( line.matches("\\s*" + AutoLayoutPreferences.URNODEPREFIX + "\\d+\t \\[height=\\d+\\.\\d+,") ||
-					line.matches("\\s*" + AutoLayoutPreferences.URNODEPREFIX + "\\d+\t \\[height=\\d+,") ||
-						line.matches("\\s*" + AutoLayoutPreferences.URNODEPREFIX + "\\d+\\s* \\[height=[0-9]*.?[0-9],")) { //$NON-NLS-1$ //$NON-NLS-2$
-				// updated for compatibility with GraphViz v2.38 
-				// ex: UrnNode5	 [height=0.50,
-				//		pos="7406,612",
-				line = line.trim();
-				IURNNode pn = URNElementFinder.findNode(urndiagram, line.substring(AutoLayoutPreferences.URNODEPREFIX.length(), line.indexOf("\t"))); //$NON-NLS-1$
+        for (Iterator<?> it = ref.getNodes().iterator(); it.hasNext();) {
+            Point at = positions.get(it.next());
+            if (at == null)
+                continue;
 
-				line = reader.readLine();
-				line = line.trim();
+            left = Math.min(left, at.x);
+            top = Math.min(top, at.y);
+            right = Math.max(right, at.x);
+            bottom = Math.max(bottom, at.y);
+            any = true;
+        }
 
-				if (pn == null)
-					throw new Exception(
-							Messages.getString("AutoLayoutWizard.cantFindPathNode") + line.substring(AutoLayoutPreferences.URNODEPREFIX.length(), line.indexOf(" ")) //$NON-NLS-1$ //$NON-NLS-2$
-							+ Messages.getString("AutoLayoutWizard.inMap")); //$NON-NLS-1$
+        if (!any)
+            return null;
 
-				String subline = line.substring(line.indexOf("pos=\"") + 5, line.lastIndexOf(",")-1); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-				//old way is ->> //String subline = line.substring(line.indexOf("\"") + 1, line.indexOf("\"", line.indexOf("\"") + 1)); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-				String[] coords = subline.split(","); //$NON-NLS-1$
-				Command move = new SetConstraintCommand(pn, (int)Math.round(Double.parseDouble(coords[0])) + PADDING, pageHeight - (int)Math.round(Double.parseDouble(coords[1])));
-				cmd.add(move);
-			}else if (line
-					.matches("\\s*" + AutoLayoutPreferences.URNODEPREFIX + "\\d+\\s*->\\s*" + AutoLayoutPreferences.URNODEPREFIX + "\\d+ \\[pos=\"e,(\\d+,\\d+\\s+)*\\d+,\\d+\"];")) { //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-				// ex: UrnNode50 -> UrnNode34 [pos="e,436,488 436,524 436,516
-				// 436,507 436,498"];
+        left -= COMPONENT_MARGIN;
+        top -= COMPONENT_MARGIN;
+        right += COMPONENT_MARGIN;
+        bottom += COMPONENT_MARGIN;
 
-				if (urndiagram instanceof UCMmap && AutoLayoutPreferences.getEmptyPoints()) {
-					line = line.trim();
-					String sCoordsList = line.substring(line.indexOf(",") + 1, line.lastIndexOf("\"")).replace(' ', ','); //$NON-NLS-1$ //$NON-NLS-2$
-					String[] sCoords = sCoordsList.split(","); //$NON-NLS-1$
+        cmd.add(new SetConstraintBoundContainerRefCompoundCommand(ref, left, top, right - left, bottom - top));
+        if (ref.getParent() != null)
+            cmd.add(new SetConstraintContainerRefCommand(ref, left, top, right - left, bottom - top));
 
-					// the dot file puts the last point at the start. move it.
-					String firstX = sCoords[0], firstY = sCoords[1];
+        return new int[] { left, top, right, bottom };
+    }
 
-					for (int i = 2; i < sCoords.length - 2; i++) {
-						sCoords[i - 2] = sCoords[i];
-					}
-					sCoords[sCoords.length - 2] = firstX;
-					sCoords[sCoords.length - 1] = firstY;
+    public void addIntentionalElemRefDimensions() {
+        UCMNavMultiPageEditor multi = (UCMNavMultiPageEditor) PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage().getActiveEditor();
+        Collection<EditPart> editparts = ((UrnEditor) multi.getCurrentPage()).getGraphicalViewer().getEditPartRegistry().values();
 
-					String sSource = line.substring(line.indexOf(AutoLayoutPreferences.URNODEPREFIX) + AutoLayoutPreferences.URNODEPREFIX.length(),
-							line.indexOf("-")).trim(); //$NON-NLS-1$
-							String sTarget = line.substring(
-									line.indexOf(AutoLayoutPreferences.URNODEPREFIX, line.indexOf(">")) + AutoLayoutPreferences.URNODEPREFIX.length(), //$NON-NLS-1$
-									line.indexOf("[", line.indexOf(AutoLayoutPreferences.URNODEPREFIX, line.indexOf(">")))).trim(); //$NON-NLS-1$ //$NON-NLS-2$
+        for (EditPart editPart : new ArrayList<EditPart>(editparts)) {
+            if (editPart instanceof NodeEditPart && editPart instanceof IntentionalElementEditPart) {
+                NodeEditPart nodeEditPart = (NodeEditPart) editPart;
+                int height = nodeEditPart.getFigure().getBounds().height;
+                int width = nodeEditPart.getFigure().getBounds().width;
 
-							IURNConnection link = URNElementFinder.findConnection(urndiagram, sSource, sTarget);
-
-							double[] distances = new double[sCoords.length / 2 - 1];
-							StatCalc sc = new StatCalc();
-							for (int i = 2; i < sCoords.length; i += 2) {
-								int curX = Integer.parseInt(sCoords[i]);
-								int curY = Integer.parseInt(sCoords[i + 1]);
-								int prevX = Integer.parseInt(sCoords[i - 2]);
-								int prevY = Integer.parseInt(sCoords[i - 1]);
-								distances[i / 2 - 1] = Math.sqrt(Math.pow(curX - prevX, 2) + Math.pow(curY - prevY, 2));
-								sc.enter(distances[i / 2 - 1]);
-							}
-
-							double avg = sc.getMean();
-							double stdDev = sc.getStandardDeviation();
-
-								for (int i = sCoords.length - 4; i >= 0; i -= 2) {
-
-									if (i == sCoords.length - 2 || (Math.abs(avg - distances[i / 2]) > 0.97 * stdDev && distances[i / 2] >= 30)) {
-										PathNode empty = (PathNode) ModelCreationFactory.getNewObject(urndiagram.getUrndefinition().getUrnspec(), EmptyPoint.class);
-										Command addEmpty = new SplitLinkCommand((UCMmap) urndiagram, empty, (NodeConnection) link, Integer.parseInt(sCoords[i]), pageHeight
-												- Integer.parseInt(sCoords[i + 1]));
-										if (addEmpty.canExecute()) {
-											cmd.add(addEmpty);
-										}
-									}
-
-								}
-				}
-
-			}
-		}
-		// bug 304: Sort commands, putting container ref moves before node moves.
-		Collections.sort(cmd.getCommands(), new AutoLayoutCommandComparator());
-		return cmd;
-	}
+                IURNNode node = (IURNNode) nodeEditPart.getModel();
+                MetadataHelper.addMetaData(node.getDiagram().getUrndefinition().getUrnspec(), (URNmodelElement) node, "_height", String.valueOf(height)); //$NON-NLS-1$
+                MetadataHelper.addMetaData(node.getDiagram().getUrndefinition().getUrnspec(), (URNmodelElement) node, "_width", String.valueOf(width)); //$NON-NLS-1$
+            }
+        }
+    }
 }
