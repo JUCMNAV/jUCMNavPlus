@@ -273,7 +273,7 @@ public class AutoLayoutPipelineTest {
         assertTrue("a loop back edge must not constrain the ranking", dot.indexOf("constraint=\"false\"") >= 0); //$NON-NLS-1$ //$NON-NLS-2$
 
         // The sample's components all hold junctions, so none of them needs a placeholder at all.
-        assertEquals("components are bands, not clusters: none should be emitted", -1, dot.indexOf("cluster")); //$NON-NLS-1$ //$NON-NLS-2$
+        assertTrue("components are 2-D boxes, emitted as clusters", dot.indexOf("cluster") >= 0); //$NON-NLS-1$
     }
 
     /**

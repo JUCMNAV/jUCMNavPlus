@@ -302,7 +302,9 @@ public class AutoLayoutWizard extends Wizard {
         // reassigned so each component becomes a band of its own: position is semantics in URN, and
         // a layered layout has no notion of "a node must not sit inside a component that does not
         // perform it". See SwimlaneBands.
-        return SwimlaneBands.apply(positions);
+        if ("true".equals(System.getProperty("jucmnav.layout.swimlanes", "false")))
+            return SwimlaneBands.apply(positions);
+        return positions;
     }
 
     /**

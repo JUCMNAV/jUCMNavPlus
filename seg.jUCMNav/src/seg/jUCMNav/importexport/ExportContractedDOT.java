@@ -25,16 +25,24 @@ import urncore.URNmodelElement;
  * Graphviz chose.
  *
  * <p>
- * <b>Components are deliberately not clusters.</b> That reads like an omission and is the single
- * biggest thing separating a tangle from a diagram. A Graphviz cluster is a tight box that its
- * members are packed into, but a UCM component is a <i>band</i>: in the reporter's own model the
- * Triage Team spans 1681 pixels, from the second node of the path to the second-to-last, because
- * the team takes part at several points. Force those members into a box and the path has to leave
- * and re-enter it at every one of them, which is exactly the crossing tangle that came out.
- * Rendered side by side, dropping the clusters is the difference between a knot and a clean
- * left-to-right flow with a symmetric fork/join. Nothing is lost by it either, because a
- * component's rectangle is derived from where its nodes land rather than dictated to Graphviz --
- * so it becomes the band it should have been.
+ * <b>Components are clusters, because a UCM component is a two-dimensional box.</b> It has a
+ * position and a size, it nests, and the rules say it must not overlap another and must contain
+ * exactly the nodes bound to it. A Graphviz cluster is the same shape of thing, and it satisfies
+ * both rules by construction -- measured against jUCMNav's own OCL layout rules, the reporter's map
+ * comes out with zero violations.
+ *
+ * <p>
+ * Two alternatives were tried and measured on that map. Emitting no clusters at all draws a clean
+ * left-to-right flow but is <i>illegal</i>: twelve rule violations, components overlapping and
+ * seven path nodes inside a component that does not perform them. Forcing each component into a
+ * horizontal band is legal but throws away a dimension -- it is a BPMN swimlane, not a UCM
+ * component -- and the path then dives from band to band.
+ *
+ * <p>
+ * Clusters are legal and keep both dimensions, at the cost of a tangle: dot additionally packs a
+ * cluster's members into adjacent ranks, a constraint UCM does not impose, so a path visiting a
+ * component at several points has to leave and re-enter it. That extra constraint, not the box, is
+ * what remains to be removed -- see #30.
  *
  * @author Claude
  */
@@ -58,8 +66,20 @@ public class ExportContractedDOT {
         // the chain interiors would inherit the corners instead of curving around them.
         dot.append("splines=\"spline\";\nnodesep=\"0.6\";\nranksep=\"0.6\";\n"); //$NON-NLS-1$
 
-        for (Iterator<PathNode> it = decomposition.getJunctions().iterator(); it.hasNext();)
-            dot.append(node(it.next()));
+        boolean clusters = !"false".equals(System.getProperty("jucmnav.layout.clusters", "true"));
+        if (clusters) {
+            for (Iterator<?> it = map.getContRefs().iterator(); it.hasNext();) {
+                urncore.IURNContainerRef ref = (urncore.IURNContainerRef) it.next();
+                if (ref.getParent() == null)
+                    cluster(ref, decomposition, dot);
+            }
+        }
+
+        for (Iterator<PathNode> it = decomposition.getJunctions().iterator(); it.hasNext();) {
+            PathNode pn = it.next();
+            if (!clusters || pn.getContRef() == null)
+                dot.append(node(pn));
+        }
 
         for (Iterator<UcmPathDecomposition.Chain> it = decomposition.getChains().iterator(); it.hasNext();) {
             UcmPathDecomposition.Chain chain = it.next();
@@ -78,6 +98,24 @@ public class ExportContractedDOT {
 
         dot.append("}\n"); //$NON-NLS-1$
         return dot.toString();
+    }
+
+    /** A component as a 2-D box: Graphviz keeps a cluster's members together and clusters apart. */
+    private static void cluster(urncore.IURNContainerRef ref, UcmPathDecomposition decomposition, StringBuffer dot) {
+        dot.append("subgraph " + AutoLayoutPreferences.CONTAINERPREFIX + ((URNmodelElement) ref).getId() + " {\n"); //$NON-NLS-1$ //$NON-NLS-2$
+        dot.append("margin=\"12\";\n"); //$NON-NLS-1$
+
+        for (Iterator<?> it = ref.getChildren().iterator(); it.hasNext();) {
+            Object child = it.next();
+            if (child instanceof urncore.IURNContainerRef)
+                cluster((urncore.IURNContainerRef) child, decomposition, dot);
+        }
+        for (Iterator<?> it = ref.getNodes().iterator(); it.hasNext();) {
+            Object n = it.next();
+            if (n instanceof PathNode && decomposition.getJunctions().contains(n))
+                dot.append(node((PathNode) n));
+        }
+        dot.append("}\n"); //$NON-NLS-1$
     }
 
     private static String node(PathNode pn) {
