@@ -260,6 +260,9 @@ public class ConstrainedPlacementTest {
         UcmPathDecomposition d = new UcmPathDecomposition(sampleMap);
         Map<IURNNode, Dimension> sizes = extents(storedPositions());
 
+        Rectangle layered = drawingBox(AutoLayoutWizard.placeUcmLayered(sampleMap));
+        System.out.println("drawing, layered   : " + layered + " aspect " + aspect(layered)); //$NON-NLS-1$ //$NON-NLS-2$
+
         Rectangle solved = drawingBox(solve(d, sizes));
         Rectangle hand = drawingBox(storedPositions());
         Rectangle pipe = drawingBox(pipeline(d));

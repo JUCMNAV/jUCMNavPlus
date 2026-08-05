@@ -48,6 +48,7 @@ import seg.jUCMNav.model.util.ChainPlacement;
 import seg.jUCMNav.model.util.ComponentSeparation;
 import seg.jUCMNav.model.util.ConstrainedPlacement;
 import seg.jUCMNav.model.util.LabelExtent;
+import seg.jUCMNav.model.util.LayeredLaneLayout;
 import seg.jUCMNav.model.util.MetadataHelper;
 import seg.jUCMNav.model.util.PathDetour;
 import seg.jUCMNav.model.util.SwimlaneBands;
@@ -305,6 +306,13 @@ public class AutoLayoutWizard extends Wizard {
     // ------------------------------------------------------------- UCM: the contracted layout
 
     private CompoundCommand layoutUcm(UCMmap map) throws Exception {
+        // Layered swim lanes by default: no Graphviz, no solver, and the URN containment rules hold
+        // by construction rather than by repair. See LayeredLaneLayout, and issue #30 for the two
+        // approaches it replaces -- both still reachable, so the three can be compared on real
+        // models before anything is deleted.
+        if (!"true".equals(System.getProperty("jucmnav.layout.graphviz"))) //$NON-NLS-1$ //$NON-NLS-2$
+            return commandsFor(map, placeUcmLayered(map));
+
         UcmPathDecomposition decomposition = new UcmPathDecomposition(map);
 
         String plain = autoLayoutDotString(ExportContractedDOT.convert(map, decomposition));
@@ -320,6 +328,22 @@ public class AutoLayoutWizard extends Wizard {
      *
      * Separated from command building so it can be exercised on a real model without a workbench.
      */
+    /**
+     * Where every node of a UCM map ends up under the default layout: layered swim lanes.
+     *
+     * Public and separate from {@link #layoutUcm} so the render sweep and the OCL legality oracle
+     * can exercise exactly what the wizard does. They call this rather than reproducing it -- a
+     * test that builds the layout its own way stops testing the layout the moment the two drift,
+     * and this pair of oracles is the only thing standing between a layout change and the user.
+     */
+    public static Map<IURNNode, Point> placeUcmLayered(UCMmap map) {
+        Map<IURNNode, Point> present = new HashMap<IURNNode, Point>();
+        for (Iterator<?> it = map.getNodes().iterator(); it.hasNext();)
+            present.put((IURNNode) it.next(), new Point(0, 0));
+
+        return LayeredLaneLayout.layout(map, visualExtentsOf(present));
+    }
+
     public static Map<IURNNode, Point> placeUcm(UcmPathDecomposition decomposition, PlainLayout layout) {
         Map<IURNNode, Point> positions = new HashMap<IURNNode, Point>();
 
