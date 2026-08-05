@@ -30,15 +30,27 @@ import seg.jUCMNav.views.preferences.AutoLayoutPreferences;
 public class AutoLayoutDotSettingsWizardPage extends WizardPage {
     private Combo cboOrientation, cboEngine;
 
+    private Label lblOrientation, lblScope;
+
     private Text txtDotPath;
 
     private Button chkAllDiagrams;
 
     /**
+     * Whether the model holds anything that Graphviz still has to draw.
+     *
+     * Conservative on purpose: any GRL graph or feature diagram anywhere in the model counts, not
+     * just the ones about to be laid out, because the "all diagrams" box can be ticked after this
+     * is decided. Leaving the orientation control live when it might matter is the safe error.
+     */
+    private final boolean hasNonUcmTargets;
+
+    /**
      * @param pageName
      */
-    protected AutoLayoutDotSettingsWizardPage(String pageName) {
+    protected AutoLayoutDotSettingsWizardPage(String pageName, boolean hasNonUcmTargets) {
         super(pageName);
+        this.hasNonUcmTargets = hasNonUcmTargets;
         setDescription(Messages.getString("AutoLayoutDotSettingsWizardPage.pleaseEnterPreferences")); //$NON-NLS-1$
         setTitle(Messages.getString("AutoLayoutDotSettingsWizardPage.autoLayoutWizard")); //$NON-NLS-1$
 
@@ -122,10 +134,18 @@ public class AutoLayoutDotSettingsWizardPage extends WizardPage {
                 // Whether Graphviz is required depends on this choice, so the page's verdict on a
                 // missing dot has to be recomputed the moment it changes.
                 refreshGraphvizStatus();
+                refreshOrientationEnablement();
             }
         });
 
-        Label lblOrientation = new Label(composite, SWT.NONE);
+        lblScope = new Label(composite, SWT.WRAP);
+        lblScope.setText(Messages.getString("AutoLayoutDotSettingsWizardPage.engineScope")); //$NON-NLS-1$
+        data = new GridData(GridData.FILL_HORIZONTAL);
+        data.horizontalSpan = 4;
+        data.widthHint = 420;
+        lblScope.setLayoutData(data);
+
+        lblOrientation = new Label(composite, SWT.NONE);
         lblOrientation.setText(Messages.getString("AutoLayoutDotSettingsWizardPage.orientation")); //$NON-NLS-1$
         data = new GridData();
         data.horizontalSpan = 2;
@@ -169,8 +189,28 @@ public class AutoLayoutDotSettingsWizardPage extends WizardPage {
             }
         });
 
+        refreshOrientationEnablement();
         setControl(composite);
 
+    }
+
+    /**
+     * Orientation only matters where Graphviz is what draws the diagram.
+     *
+     * <p>
+     * It sets {@code rankdir}, so it governs the Graphviz engine -- and it governs GRL graphs and
+     * feature diagrams too, which go through Graphviz whatever engine is chosen for UCM maps. It
+     * does nothing at all to the layered layout, whose flow axis is its own.
+     *
+     * <p>
+     * So this is greyed out for the layered engine, but only when the model has nothing in it that
+     * still needs Graphviz. Disabling it whenever "layered" is picked would take away the only
+     * control over how a user's GRL diagrams are turned.
+     */
+    private void refreshOrientationEnablement() {
+        boolean matters = AutoLayoutPreferences.ENGINE_GRAPHVIZ.equals(AutoLayoutPreferences.getEngine()) || hasNonUcmTargets;
+        cboOrientation.setEnabled(matters);
+        lblOrientation.setEnabled(matters);
     }
 
     public void setDotPath(String path) {

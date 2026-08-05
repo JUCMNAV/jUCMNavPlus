@@ -107,7 +107,18 @@ public class AutoLayoutWizard extends Wizard {
     }
 
     public void addPages() {
-        addPage(new AutoLayoutDotSettingsWizardPage(Messages.getString("AutoLayoutWizard.dotConfig"))); //$NON-NLS-1$
+        addPage(new AutoLayoutDotSettingsWizardPage(Messages.getString("AutoLayoutWizard.dotConfig"), hasNonUcmDiagrams())); //$NON-NLS-1$
+    }
+
+    /** Whether this model holds a GRL graph or feature diagram, which only Graphviz can lay out. */
+    private boolean hasNonUcmDiagrams() {
+        if (diagram == null || diagram.getUrndefinition() == null)
+            return !(diagram instanceof UCMmap) && diagram != null;
+
+        for (Iterator<?> it = diagram.getUrndefinition().getSpecDiagrams().iterator(); it.hasNext();)
+            if (!(it.next() instanceof UCMmap))
+                return true;
+        return false;
     }
 
     /**
@@ -590,6 +601,57 @@ public class AutoLayoutWizard extends Wizard {
 
     // ------------------------------------------------------------------------------- shared
 
+    /**
+     * Slides the whole drawing up against the top-left corner.
+     *
+     * <p>
+     * Fixes the acres of empty space a laid-out diagram could open above and to the left of itself
+     * before anything was visible. The canvas grows to hold the origin, so content that starts at
+     * x=1500 shows 1500px of nothing first, and content at a negative coordinate is worse.
+     *
+     * <p>
+     * There were two ways to get there and this covers both. Graphviz coordinates are flipped
+     * through {@code layout.getHeight()}, which is the whole graph's bounding box -- and that box
+     * is inflated by the invisible {@code CheapTrick} placeholder {@code ExportLayoutDOT} emits per
+     * container, sized from the container's <i>current</i> on-screen bounds. A 1681px actor becomes
+     * a 23-inch node, so the real content lands far from the origin. Separately, anything that
+     * translates whole components after placement can leave the drawing anywhere at all, including
+     * at negative coordinates.
+     *
+     * <p>
+     * A translation only: every node moves by the same offset, so no layout is altered by this --
+     * which is what makes it safe to apply to GRL and feature diagrams, whose layout is otherwise
+     * untouched.
+     */
+    private static void toOrigin(Map<IURNNode, Point> positions, Map<IURNNode, Dimension> extents) {
+        if (positions == null || positions.isEmpty())
+            return;
+
+        int left = Integer.MAX_VALUE, top = Integer.MAX_VALUE;
+        for (Iterator<IURNNode> it = positions.keySet().iterator(); it.hasNext();) {
+            IURNNode node = it.next();
+            Point at = positions.get(node);
+            Dimension size = extents == null ? null : extents.get(node);
+            left = Math.min(left, at.x - (size == null ? 0 : size.width / 2));
+            top = Math.min(top, at.y - (size == null ? 0 : size.height / 2));
+        }
+        if (left == Integer.MAX_VALUE)
+            return;
+
+        // Clear of the origin by a component's margin as well as the page padding, so a container
+        // rectangle drawn around the outermost nodes still lands on the canvas.
+        int dx = PADDING + COMPONENT_MARGIN - left;
+        int dy = PADDING + COMPONENT_MARGIN - top;
+        if (dx == 0 && dy == 0)
+            return;
+
+        for (Iterator<IURNNode> it = positions.keySet().iterator(); it.hasNext();) {
+            IURNNode node = it.next();
+            Point at = positions.get(node);
+            positions.put(node, new Point(at.x + dx, at.y + dy));
+        }
+    }
+
     /** Graphviz measures from the bottom left in points; the diagram measures from the top left. */
     private static Point toDiagram(double x, double y, PlainLayout layout) {
         return new Point((int) Math.round(x) + PADDING, (int) Math.round(layout.getHeight() - y) + PADDING);
@@ -648,6 +710,8 @@ public class AutoLayoutWizard extends Wizard {
         // it does not require a container's members to occupy adjacent ranks, which is the extra
         // constraint a Graphviz cluster adds and the reason clusters tangled the path.
         if (!"true".equals(System.getProperty("jucmnav.layout.noseparation"))) ComponentSeparation.apply(positions, extents, COMPONENT_MARGIN);
+
+        toOrigin(positions, extents);
 
         CompoundCommand cmd = new CompoundCommand();
 
