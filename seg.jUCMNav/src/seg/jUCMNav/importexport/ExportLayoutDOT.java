@@ -71,10 +71,29 @@ public class ExportLayoutDOT implements IUseCaseMapExport {
 				+ " [label=\"\", height=\"" + height + "\", width=\"" + width + "\"];\n"; //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
 	}
 
+	/** What an empty container reserves, in inches: about one GRL element, so it stays droppable. */
+	private static final double EMPTY_CONTAINER_WIDTH = 1.5;
+
+	private static final double EMPTY_CONTAINER_HEIGHT = 0.85;
+
 	private static void buildCluster(IURNContainerRef contRef, StringBuffer dot) {
 
 		dot.append("subgraph " + AutoLayoutPreferences.CONTAINERPREFIX + ((URNmodelElement) contRef).getId() + " {\r\n"); //$NON-NLS-1$ //$NON-NLS-2$
-		dot.append("CheapTrick" + id++ + " [label=\"\", pos=\"\", width=\""+ contRef.getWidth()/72.0 +"\", height=\""+ contRef.getHeight()/72.0 +"\"];\n"); //$NON-NLS-1$ //$NON-NLS-2$
+		// A cluster is sized by what it holds, so a container holding anything needs no placeholder
+		// at all. The one emitted here used to be as big as the container currently is on screen --
+		// contRef.getWidth()/72.0 inches -- so an actor a user had dragged out to 1669px became a
+		// 23-inch invisible node and Graphviz sized the entire drawing around it. Measured on a
+		// synthetic actor with those bounds holding three ordinary elements: the graph came out
+		// 23.6 x 16.3 inches for content needing well under two.
+		//
+		// That is also why a laid-out diagram could open with a screenful of white space: the real
+		// content sat in one corner of a canvas stretched to fit a node nobody can see.
+		//
+		// An empty container still needs something, or its cluster collapses to nothing and the
+		// user gets a box too small to drop anything into. One element's worth is enough.
+		if (contRef.getChildren().isEmpty() && contRef.getNodes().isEmpty())
+			dot.append("CheapTrick" + id++ + " [label=\"\", pos=\"\", width=\"" + EMPTY_CONTAINER_WIDTH //$NON-NLS-1$ //$NON-NLS-2$
+					+ "\", height=\"" + EMPTY_CONTAINER_HEIGHT + "\"];\n"); //$NON-NLS-1$ //$NON-NLS-2$
 
 		IURNContainerRef child;
 		for (int i = 0; i < contRef.getChildren().size(); i++) {
