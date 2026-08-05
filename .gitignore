@@ -21,3 +21,8 @@ build-debug.log
 # `git commit -F`. Always meant to be deleted by the same shell command that
 # created it; pinned here as a backstop.
 .commit-msg.tmp
+
+# Tycho pomless artifacts. The polyglot extension writes a synthetic POM beside
+# each module's real descriptor (MANIFEST.MF, feature.xml, category.xml) on every
+# build, so these are generated output, never source.
+.polyglot.*
