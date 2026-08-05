@@ -261,7 +261,17 @@ public class ConstrainedPlacementTest {
         Map<IURNNode, Dimension> sizes = extents(storedPositions());
 
         Rectangle layered = drawingBox(AutoLayoutWizard.placeUcmLayered(sampleMap));
+        Rectangle reference = drawingBox(storedPositions());
         System.out.println("drawing, layered   : " + layered + " aspect " + aspect(layered)); //$NON-NLS-1$ //$NON-NLS-2$
+
+        // Height is where band allocation goes wrong, and it goes wrong quietly -- the drawing
+        // stays legal and every component stays disjoint, it just grows a band it did not need and
+        // the path climbs between bands that could have been adjacent. Two separate defects showed
+        // up here: giving every component its own band (742px) and laying the bands out in the
+        // order packing opened them rather than in flow order (394px). The reference draws this
+        // map in 365. Anything much past that is one of those two coming back.
+        assertTrue("the drawing must not grow bands it does not need: " + layered.height //$NON-NLS-1$
+                + "px against the reference's " + reference.height, layered.height < reference.height * 1.3); //$NON-NLS-1$
 
         Rectangle solved = drawingBox(solve(d, sizes));
         Rectangle hand = drawingBox(storedPositions());

@@ -364,6 +364,19 @@ public class LayeredLaneLayout {
                 trackRight.set(chosen, Double.valueOf(Math.max(trackRight.get(chosen).doubleValue(), extent[1])));
         }
 
+        // Bands go down the page in flow order, not in the order packing happened to open them.
+        // Packing fills the first track with room, so one track ends up holding components from
+        // all over the path -- and laying the tracks out in that order can put a tall band between
+        // two components the path runs straight between. That is what sent the path plunging to
+        // QA Team and back: Dev Team and QA Team are consecutive in the flow but landed in tracks
+        // 0 and 2, with the full-width Triage Team band in between.
+        final Map<PathNode, Integer> flow = layer;
+        Collections.sort(tracks, new Comparator<List<IURNContainerRef>>() {
+            public int compare(List<IURNContainerRef> a, List<IURNContainerRef> b) {
+                return Double.compare(meanLayer(a, flow), meanLayer(b, flow));
+            }
+        });
+
         double cursor = 0;
         for (int t = 0; t < tracks.size(); t++) {
             double height = 0;
@@ -375,6 +388,28 @@ public class LayeredLaneLayout {
             cursor += height + LANE_GAP;
         }
         return lane;
+    }
+
+    /**
+     * Where in the flow everything in a track sits, on average.
+     *
+     * The mean rather than the earliest layer, because a track holds several components and one of
+     * them starting early says nothing about where the track as a whole belongs.
+     */
+    private static double meanLayer(List<IURNContainerRef> track, Map<PathNode, Integer> layer) {
+        double sum = 0;
+        int count = 0;
+        for (int i = 0; i < track.size(); i++) {
+            List<PathNode> held = subtreeNodes(track.get(i));
+            for (int n = 0; n < held.size(); n++) {
+                Integer l = layer.get(held.get(n));
+                if (l != null) {
+                    sum += l.intValue();
+                    count++;
+                }
+            }
+        }
+        return count == 0 ? 0 : sum / count;
     }
 
     /** The earliest layer anything in this component's subtree occupies. */
