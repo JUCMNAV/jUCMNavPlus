@@ -21,10 +21,17 @@ public class AutoLayoutPreferences {
 	 * readable flow and a tangle.
 	 */
 	public final static String DEFAULTORIENTATION = "LR"; //$NON-NLS-1$
+
+	/** Layered swim lanes: no Graphviz, and the URN containment rules hold by construction. */
+	public final static String ENGINE_LAYERED = "layered"; //$NON-NLS-1$
+
+	/** The Graphviz-seeded constrained placement. Kept for comparison on real models. */
+	public final static String ENGINE_GRAPHVIZ = "graphviz"; //$NON-NLS-1$
 	/** Lay out only the diagram you are looking at, unless asked otherwise. */
 	public final static boolean DEFAULTALLDIAGRAMS = false;
 	public final static String PREF_DOTPATH = "seg.jUCMNav.AutoLayout.DotPath"; //$NON-NLS-1$
 	public final static String PREF_ORIENTATION = "seg.jUCMNav.AutoLayout.Orientation"; //$NON-NLS-1$
+	public final static String PREF_ENGINE = "seg.jUCMNav.AutoLayout.Engine"; //$NON-NLS-1$
 	public final static String PREF_ALLDIAGRAMS = "seg.jUCMNav.AutoLayout.AllDiagrams"; //$NON-NLS-1$
 	public final static String URNODEPREFIX = "UrnNode"; //$NON-NLS-1$
 	public final static String DIAGPREFIX = "UrnDiag"; //$NON-NLS-1$
@@ -52,6 +59,7 @@ public class AutoLayoutPreferences {
 		}
 
 		getPreferenceStore().setDefault(AutoLayoutPreferences.PREF_ORIENTATION, AutoLayoutPreferences.DEFAULTORIENTATION);
+		getPreferenceStore().setDefault(AutoLayoutPreferences.PREF_ENGINE, AutoLayoutPreferences.ENGINE_LAYERED);
 		getPreferenceStore().setDefault(AutoLayoutPreferences.PREF_ALLDIAGRAMS, AutoLayoutPreferences.DEFAULTALLDIAGRAMS);
 	}
 
@@ -104,6 +112,28 @@ public class AutoLayoutPreferences {
 	 * 
 	 * @return the orientation (TB, LR)
 	 */
+/**
+	 * Which layout to use for UCM maps.
+	 *
+	 * <p>
+	 * Only UCM maps have a choice: GRL graphs and feature diagrams are laid out by
+	 * {@code ExportLayoutDOT} through Graphviz whatever this says, because the layered layout is
+	 * written against UCM paths and components and has no counterpart for them yet.
+	 */
+	public static String getEngine() {
+		String engine = getPreferenceStore().getString(PREF_ENGINE);
+		return ENGINE_GRAPHVIZ.equals(engine) ? ENGINE_GRAPHVIZ : ENGINE_LAYERED;
+	}
+
+	public static void setEngine(String engine) {
+		getPreferenceStore().setValue(PREF_ENGINE, ENGINE_GRAPHVIZ.equals(engine) ? ENGINE_GRAPHVIZ : ENGINE_LAYERED);
+	}
+
+	/** Whether Graphviz has to be present for what the user is about to lay out. */
+	public static boolean needsGraphviz(boolean hasNonUcmDiagrams) {
+		return hasNonUcmDiagrams || ENGINE_GRAPHVIZ.equals(getEngine());
+	}
+
 	public static String getOrientation() {
 		return getPreferenceStore().getString(PREF_ORIENTATION);
 	}

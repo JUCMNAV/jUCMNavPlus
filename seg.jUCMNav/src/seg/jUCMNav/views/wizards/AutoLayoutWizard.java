@@ -310,7 +310,10 @@ public class AutoLayoutWizard extends Wizard {
         // by construction rather than by repair. See LayeredLaneLayout, and issue #30 for the two
         // approaches it replaces -- both still reachable, so the three can be compared on real
         // models before anything is deleted.
-        if (!"true".equals(System.getProperty("jucmnav.layout.graphviz"))) //$NON-NLS-1$ //$NON-NLS-2$
+        // The system property is a test and debugging override; the preference is what users set.
+        boolean graphviz = "true".equals(System.getProperty("jucmnav.layout.graphviz")) //$NON-NLS-1$ //$NON-NLS-2$
+                || AutoLayoutPreferences.ENGINE_GRAPHVIZ.equals(AutoLayoutPreferences.getEngine());
+        if (!graphviz)
             return commandsFor(map, placeUcmLayered(map));
 
         UcmPathDecomposition decomposition = new UcmPathDecomposition(map);

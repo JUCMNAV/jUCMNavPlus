@@ -28,7 +28,7 @@ import seg.jUCMNav.views.preferences.AutoLayoutPreferences;
  * 
  */
 public class AutoLayoutDotSettingsWizardPage extends WizardPage {
-    private Combo cboOrientation;
+    private Combo cboOrientation, cboEngine;
 
     private Text txtDotPath;
 
@@ -101,6 +101,30 @@ public class AutoLayoutDotSettingsWizardPage extends WizardPage {
             }
         });
 
+        Label lblEngine = new Label(composite, SWT.NONE);
+        lblEngine.setText(Messages.getString("AutoLayoutDotSettingsWizardPage.engine")); //$NON-NLS-1$
+        data = new GridData();
+        data.horizontalSpan = 2;
+        lblEngine.setLayoutData(data);
+
+        cboEngine = new Combo(composite, SWT.READ_ONLY);
+        cboEngine.setItems(new String[] { Messages.getString("AutoLayoutDotSettingsWizardPage.engineLayered"), //$NON-NLS-1$
+                Messages.getString("AutoLayoutDotSettingsWizardPage.engineGraphviz") }); //$NON-NLS-1$
+        cboEngine.select(AutoLayoutPreferences.ENGINE_GRAPHVIZ.equals(AutoLayoutPreferences.getEngine()) ? 1 : 0);
+        data = new GridData();
+        data.horizontalAlignment = GridData.FILL;
+        data.horizontalSpan = 2;
+        cboEngine.setLayoutData(data);
+        cboEngine.addSelectionListener(new SelectionAdapter() {
+            public void widgetSelected(SelectionEvent e) {
+                AutoLayoutPreferences.setEngine(cboEngine.getSelectionIndex() == 1 ? AutoLayoutPreferences.ENGINE_GRAPHVIZ
+                        : AutoLayoutPreferences.ENGINE_LAYERED);
+                // Whether Graphviz is required depends on this choice, so the page's verdict on a
+                // missing dot has to be recomputed the moment it changes.
+                refreshGraphvizStatus();
+            }
+        });
+
         Label lblOrientation = new Label(composite, SWT.NONE);
         lblOrientation.setText(Messages.getString("AutoLayoutDotSettingsWizardPage.orientation")); //$NON-NLS-1$
         data = new GridData();
@@ -152,8 +176,38 @@ public class AutoLayoutDotSettingsWizardPage extends WizardPage {
     public void setDotPath(String path) {
         txtDotPath.setText(path);
         AutoLayoutPreferences.setDotPath(path);
+        refreshGraphvizStatus();
+    }
 
-        updateStatus(doesDotPathExist() ? null : Messages.getString("AutoLayoutDotSettingsWizardPage.GraphvizNotFound")); //$NON-NLS-1$
+    /**
+     * Complains about a missing Graphviz only when one is actually needed.
+     *
+     * <p>
+     * A missing dot used to make the page incomplete, which disabled Finish. That was right when
+     * every layout went through Graphviz. It is wrong now: the layered layout does not run dot at
+     * all, so blocking on its absence would stop a user laying out a UCM map for the sake of a
+     * dependency that layout has no use for.
+     *
+     * <p>
+     * It stays a hard block when the Graphviz engine is chosen, since that one genuinely cannot
+     * proceed. GRL graphs and feature diagrams still need dot whatever is chosen here -- they have
+     * no layered layout yet -- so their absence is reported as a warning rather than silently, and
+     * they fail with the usual error if the user goes ahead without one.
+     */
+    private void refreshGraphvizStatus() {
+        if (doesDotPathExist()) {
+            setErrorMessage(null);
+            setMessage(null);
+            setPageComplete(true);
+            return;
+        }
+
+        String missing = Messages.getString("AutoLayoutDotSettingsWizardPage.GraphvizNotFound"); //$NON-NLS-1$
+        boolean required = AutoLayoutPreferences.ENGINE_GRAPHVIZ.equals(AutoLayoutPreferences.getEngine());
+
+        setErrorMessage(required ? missing : null);
+        setMessage(required ? null : Messages.getString("AutoLayoutDotSettingsWizardPage.GraphvizOnlyForGrl"), WARNING); //$NON-NLS-1$
+        setPageComplete(!required);
     }
 
 
@@ -168,16 +222,6 @@ public class AutoLayoutDotSettingsWizardPage extends WizardPage {
 
 
 
-    /**
-     * Updates the status of the window
-     * 
-     * @param message
-     *            the error message or null if no error message.
-     */
-    private void updateStatus(String message) {
-        setErrorMessage(message);
-        setPageComplete(message == null);
-    }
 
     private boolean doesDotPathExist() {
         try {

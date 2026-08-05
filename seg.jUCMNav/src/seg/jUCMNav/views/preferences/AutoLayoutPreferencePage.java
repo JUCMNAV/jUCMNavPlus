@@ -40,6 +40,13 @@ public class AutoLayoutPreferencePage extends FieldEditorPreferencePage implemen
                 getFieldEditorParent());
         addField(dotPath);
 
+        String[][] engines = { { Messages.getString("AutoLayoutDotSettingsWizardPage.engineLayered"), AutoLayoutPreferences.ENGINE_LAYERED }, //$NON-NLS-1$
+                { Messages.getString("AutoLayoutDotSettingsWizardPage.engineGraphviz"), AutoLayoutPreferences.ENGINE_GRAPHVIZ } }; //$NON-NLS-1$
+
+        RadioGroupFieldEditor engine = new RadioGroupFieldEditor(AutoLayoutPreferences.PREF_ENGINE, Messages
+                .getString("AutoLayoutDotSettingsWizardPage.engine"), 1, engines, getFieldEditorParent()); //$NON-NLS-1$
+        addField(engine);
+
         String[][] values = { { Messages.getString("AutoLayoutDotSettingsWizardPage.topdown"), "TB" }, //$NON-NLS-1$ //$NON-NLS-2$
                 { Messages.getString("AutoLayoutDotSettingsWizardPage.leftright"), "LR" } }; //$NON-NLS-1$ //$NON-NLS-2$
 
