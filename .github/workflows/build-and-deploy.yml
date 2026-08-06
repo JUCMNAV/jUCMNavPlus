@@ -54,6 +54,11 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # A wedged test should cost minutes, not the six-hour default. The suite finishes well inside
+    # ten; anything past this is stuck rather than slow. Learned the hard way: a modal dialog with
+    # nobody to dismiss it held JUCMNavGRLCommandTests for six hours before the job timed out, by
+    # which point the run had blocked every later push behind it.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
         with:

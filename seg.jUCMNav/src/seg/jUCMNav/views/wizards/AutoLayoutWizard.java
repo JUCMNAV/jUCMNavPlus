@@ -154,8 +154,18 @@ public class AutoLayoutWizard extends Wizard {
         InputStream istream = null;
         String dot = AutoLayoutPreferences.locateDot();
         if (dot == null) {
-            MessageDialog.openError(getShell(), Messages.getString("AutoLayoutWizard.autoLayoutError"), //$NON-NLS-1$
-                    Messages.getString("AutoLayoutWizard.graphvizNotFound")); //$NON-NLS-1$
+            // Only tell the user when there is a user to tell. This wizard is also driven
+            // programmatically -- ShowLinkedElementInNewDiagramCommand builds one and never opens
+            // it in a dialog -- and a modal error with no container to parent it blocks on an OK
+            // that nobody can click. Under a headless CI display that is not a slow build, it is a
+            // permanent hang: the suite sat in JUCMNavGRLCommandTests for six hours until the job
+            // timed out, on a runner that installs xvfb and no Graphviz.
+            //
+            // Callers already handle a null stream: autoLayoutDotString returns "", and every
+            // layout path treats empty output as "nothing to position".
+            if (getContainer() != null)
+                MessageDialog.openError(getShell(), Messages.getString("AutoLayoutWizard.autoLayoutError"), //$NON-NLS-1$
+                        Messages.getString("AutoLayoutWizard.graphvizNotFound")); //$NON-NLS-1$
             return null;
         }
 
