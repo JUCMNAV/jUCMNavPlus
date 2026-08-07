@@ -176,7 +176,13 @@ public class ShowLinkedElementInNewDiagramCommand extends Command implements JUC
         }catch (InvocationTargetException e){
         	e.printStackTrace();
         }
-        autoLayoutCmd.execute();
+        // Laying the new diagram out is a courtesy, not part of what this command promises. It
+        // needs Graphviz, and when that is absent doAutolayout() has nothing to return -- so the
+        // diagram is created with its elements where they were placed, rather than not created at
+        // all. Dereferencing this unconditionally made two GRL command tests fail on any machine
+        // without dot installed, the CI runner among them.
+        if (autoLayoutCmd != null)
+            autoLayoutCmd.execute();
         
         testPostConditions();
     }
