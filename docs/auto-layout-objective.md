@@ -129,3 +129,40 @@ produced an error, a warning, or an obviously silly value.
 - **When you replace a component, enumerate what it was giving you.** Not what
   it was *for* — what it was *giving you*. Graphviz was there for topology and
   ranking; it was also, unasked, keeping the paths from crossing.
+
+## Epilogue: the objective did not survive contact with a better layout
+
+Everything above describes tuning a force-directed solver against a five-term
+measure. That solver is no longer the default, and the reason is worth adding,
+because it is the same lesson one turn further on.
+
+The models this project is measured against turned out to have been drawn by
+**PM4Py-UCM**, not by hand — `author="pm4py-ucm"` in the file. So "beats the
+hand-drawn map" had never meant reaching a human quality ceiling; it meant
+marginally out-scoring a competing automatic layout while, by eye, losing to it.
+A mislabelled baseline had been flattering every result in this document.
+
+Reading that layouter settled it. It wins not by searching better but by making
+the constraints **true by construction**: components get disjoint horizontal
+bands, so two rectangles cannot intersect whatever the nodes do; a child's band
+nests inside its parent's, so containment is geometry rather than penalty;
+columns are as wide as their widest label, so labels cannot collide. Nothing has
+to be repaired, nothing has to be weighted, and no two rules can pull against
+each other. `LayeredLaneLayout` is a port of it.
+
+Note what that does to the measure. Barycentric placement — each node at the
+average height of its neighbours — is simultaneously the classic
+crossing-reduction heuristic and a smoothing operator, so it gets both bending
+and crossings right *without either being scored*. The bending term, the crossing
+term, the weight calibration: all of it was scaffolding for a formulation that
+needed them, and none of it is load-bearing now.
+
+So the closing lesson is not about weights. **A measure is only worth what the
+search it guides is worth.** Six force weights and five objective terms were
+spent making a formulation behave that a structurally sound one never needed. The
+cheapest way to find that out was to read a working implementation, which was on
+disk the whole time.
+
+`LayoutObjective` is kept: it scores any placement, it caught real regressions,
+and it is how the port was checked against what it replaced. It is an instrument
+now, not a target.

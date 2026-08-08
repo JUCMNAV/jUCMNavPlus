@@ -15,9 +15,9 @@ Classic (diagram editors), and MDT/OCL (constraints).
 tests, and runs on Java 21 LTS + Eclipse 2026-03 (4.39). The full Phase A
 (compile-clean, Tycho build, p2 update site) and Phase B (QA bug hunt:
 SWT leaks, dispose races, thread-affinity issues, GEF generics fallout,
-JDK 21 API drift) are merged. Every push to `master` runs the 401-test
+JDK 21 API drift) are merged. Every push to `master` runs the 466-test
 JUnit suite under a headless Eclipse UI harness as a hard CI gate. The
-current release is **10.0.7**.
+current release is **10.0.8**.
 
 The installable update site is published continuously to GitHub Pages at
 [`https://jucmnav.github.io/jUCMNavPlus/`](https://jucmnav.github.io/jUCMNavPlus/) —
@@ -48,7 +48,7 @@ trail, see [`git log master`](https://github.com/JUCMNAV/jUCMNavPlus/commits/mas
 | **CORE library** | The `ca.mcgill.sel.core` dependency is now vendored in-tree | Builds don't depend on an external university Maven host that could disappear; everything you need to compile and run is in this repo |
 | **EMF model** | The URN / UCM / GRL / FM model code was regenerated from the `.ecore` / `.genmodel` sources using current EMF tooling | Model loading, serialization, and validation run on supported APIs (no JDK-removed methods); future model changes can be regenerated cleanly instead of hand-patched |
 | **Distribution** | One-click p2 update site from GitHub Pages | Paste `https://jucmnav.github.io/jUCMNavPlus/` into Eclipse's Install New Software and you're done — automatic updates via Help → Check for Updates |
-| **Quality gate** | 401 JUnit tests under a headless Eclipse harness, gating every push | Regressions get caught in CI instead of by you mid-presentation |
+| **Quality gate** | 466 JUnit tests under a headless Eclipse harness, gating every push | Regressions get caught in CI instead of by you mid-presentation |
 | **CI / artifacts** | GitHub Actions builds + tests + publishes the update site on every push to `master`; downloadable site artifact on every PR build | You can install a feature-branch / PR build locally before it's merged or published — no waiting on a release cycle |
 | **Project home** | Repo lives in the `JUCMNAV/` organization for continuity and multi-maintainer support | Install URL is `jucmnav.github.io/jUCMNavPlus/`; the historical `damyot/jUCMNavPlus` URL auto-redirects but the old Pages host does not — update your Eclipse update site list |
 | **HTML report — modern rendering** | Replaced the 2008-era frameset + browser-side XSLT + jQuery pipeline with a self-contained `index.html` (flexbox sidebar + content iframe) and full diagram names sorted alphabetically | Reports open correctly in current Chrome / Edge / Firefox — the old XSLT silently failed on `file://` and Chrome announced removal of `XSLTProcessor` in 2024. Names like "GRL-Adequate Follow-up" stay intact instead of getting truncated to "up", and the sidebar reads top-to-bottom in a predictable order |
@@ -75,6 +75,40 @@ trail, see [`git log master`](https://github.com/JUCMNAV/jUCMNavPlus/commits/mas
 | **10.0.5 — large-model performance** | Three quadratic hot spots removed: same-document ID references now resolve through an id map instead of a full model walk per reference; enumeration values are indexed instead of scanned on every variable reference; expression syntax trees are cached instead of re-parsed on every evaluation. Plus: multi-line responsibility and stub names no longer truncate to their first line in the outline and list views, and a fly-out submenu is no longer disposed while Windows still tracks it | A 3.7 MB generated model (30 maps, 1155 scenarios) opens in 10 s instead of 167 s, and running all 1155 scenario definitions takes 28 s instead of not finishing at all |
 | **10.0.6 — undo & menu correctness** | Refactor into Stub could never be undone at all: it nests helper commands that are empty when they have no work, and GEF treats an empty compound as un-undoable, which silently blocked the whole refactor — nine further commands carried the same latent flaw. The command stack also advertised an Undo it could not perform, so the action stayed enabled and every press did nothing. Plus: a keyboard shortcut back to the selection tool, the URN Links menu no longer breaks when a link's target is deleted, blank names report as missing rather than "already exists", and two hand-built pop-up menus stop leaking | Undo actually undoes a Refactor into Stub, and greys out honestly when it cannot; pressing Undo repeatedly to no effect is gone |
 | **10.0.7 — Refactor into Stub, rebuilt** | The command now computes what it extracts and constructs the result, instead of deleting the selection and assembling a stub from the severed ends left behind. See [below](#refactor-into-stub-rebuilt) | Select a region, get a stub with exactly one path per boundary crossing, a plug-in map that still means what the region meant, and scenarios that run identically before and after |
+
+| **10.0.8 — auto-layout, rebuilt** | UCM maps are now laid out by a layered swim-lane algorithm that needs no Graphviz at all: components get disjoint horizontal bands, so they cannot overlap by construction, and each node sits at the average height of its neighbours, which is what keeps paths smooth and crossings down. Graphviz remains selectable. See [below](#auto-layout-rebuilt) | Press Auto-layout and get a readable left-to-right map without installing anything; laying out a whole model is a single undo |
+
+### Auto-layout, rebuilt
+
+Auto-layout had silently done nothing on any Graphviz released since about 2015 — it
+scraped `-Tdot` with regular expressions pinned to the 2011 output format, found no
+match, and positioned nothing. Fixing that exposed the real problem: a UCM path is
+drawn as a spline through its nodes, so its shape depends on their spacing and turn
+angles, and a layered graph layout reasons about neither.
+
+**What it does now.** Layer assignment by longest path gives the x axis. Every
+top-level component gets its own horizontal band, and a nested component's band sits
+inside its parent's — so two component rectangles *cannot* intersect, whatever the
+nodes do, and containment holds geometrically rather than by repair. Each node then
+takes the average height of its neighbours, clamped to its band, which is
+simultaneously the standard crossing-reduction heuristic and a smoothing operator.
+Bands that never compete for horizontal space share one row, which keeps the drawing
+wide and flat instead of growing a band per component.
+
+**Graphviz is optional.** The layered layout runs entirely in-process. Graphviz stays
+selectable in the wizard and preferences for UCM maps; GRL graphs and feature diagrams
+still use it, and the wizard says so rather than leaving you to find out.
+
+**Also in this release.** Laying out a whole model is one undo instead of one per
+diagram. A laid-out diagram no longer opens with a screenful of empty space before the
+model — a container reserved room equal to its *current* on-screen size, so an actor
+dragged out to 1669px became a 23-inch invisible node and the drawing was sized around
+it. Three settings that did nothing were removed.
+
+The design record, including how the quality measure came to rate an unreadable drawing
+43% better than a good one, is in
+[`docs/auto-layout-objective.md`](docs/auto-layout-objective.md) and on
+[issue #30](https://github.com/JUCMNAV/jUCMNavPlus/issues/30).
 
 ### Refactor into Stub, rebuilt
 
