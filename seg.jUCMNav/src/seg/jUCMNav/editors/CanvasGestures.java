@@ -9,6 +9,8 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.GestureEvent;
 import org.eclipse.swt.events.GestureListener;
 import org.eclipse.swt.widgets.Control;
+import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Listener;
 
 /**
  * Pinch to zoom and two-finger pan on a diagram canvas.
@@ -17,8 +19,8 @@ import org.eclipse.swt.widgets.Control;
  * <b>Spike.</b> The SWT gesture APIs are present in the target platform, but how much actually
  * arrives depends on the window system: Cocoa has supported these for years, Win32 synthesises them
  * from {@code WM_GESTURE} for precision touchpads and touchscreens, and GTK may deliver nothing at
- * all. So this is strictly additive -- where no gesture arrives, nothing happens, and Ctrl+scroll
- * keeps working exactly as before. It is attached only if the platform admits to supporting it.
+ * all. So a pinch is also accepted as Ctrl+wheel, which is how a Windows Precision Touchpad
+ * actually reports one -- that path needs no gesture support at all and covers every platform.
  *
  * <p>
  * None of this can be exercised by the test suite: gestures cannot be synthesised in the headless
@@ -40,6 +42,9 @@ public class CanvasGestures implements GestureListener {
      * acting on all of them makes the diagram creep while nobody is doing anything.
      */
     private static final double MAGNIFY_DEADBAND = 0.01;
+
+    /** Zoom change per Ctrl+wheel notch. 10% is what most drawing tools use. */
+    private static final double WHEEL_STEP = 1.1;
 
     private final ZoomManager zoomManager;
     private final FigureCanvas canvas;
@@ -79,12 +84,45 @@ public class CanvasGestures implements GestureListener {
             return;
 
         FigureCanvas canvas = (FigureCanvas) control;
+        final CanvasGestures gestures = new CanvasGestures(zoomManager, canvas);
+
         try {
-            canvas.addGestureListener(new CanvasGestures(zoomManager, canvas));
+            canvas.addGestureListener(gestures);
         } catch (Throwable unsupported) {
-            // A window system without gesture support is not an error. The user keeps Ctrl+scroll,
-            // the scrollbars, and the zoom combo; they simply do not get to pinch.
+            // A window system without gesture support is not an error; the wheel path below still
+            // works, and so do the scrollbars and the zoom combo.
         }
+
+        // Ctrl+wheel, which is what a pinch actually arrives as on a Windows Precision Touchpad.
+        // Those report pinch to the application as a wheel event with Ctrl held rather than as a
+        // WM_GESTURE, so GESTURE_MAGNIFY never fires and the gesture listener above sees nothing --
+        // which is exactly the "panning works, zoom does nothing" symptom. Handling it here covers
+        // the trackpad, the mouse wheel, and every platform, without depending on which of them
+        // synthesises gestures.
+        canvas.addListener(SWT.MouseWheel, new Listener() {
+            public void handleEvent(Event event) {
+                if ((event.stateMask & SWT.MOD1) == 0 || event.count == 0)
+                    return;
+
+                gestures.wheelZoom(event.count, event.x, event.y);
+                event.doit = false; // consumed: do not also scroll the viewport
+            }
+        });
+    }
+
+    /**
+     * One notch of Ctrl+wheel, anchored on the pointer.
+     *
+     * @param notches
+     *            positive to zoom in, negative out
+     */
+    void wheelZoom(int notches, int x, int y) {
+        double current = zoomManager.getZoom();
+        double wanted = clamp(current * Math.pow(WHEEL_STEP, notches));
+        if (wanted == current)
+            return;
+
+        zoomTo(wanted, current, x, y);
     }
 
     public void gesture(GestureEvent event) {
@@ -122,22 +160,29 @@ public class CanvasGestures implements GestureListener {
         if (startZoom <= 0 || Math.abs(event.magnification - 1.0) < MAGNIFY_DEADBAND)
             return;
 
-        double wanted = clamp(startZoom * event.magnification);
         double current = zoomManager.getZoom();
+        double wanted = clamp(startZoom * event.magnification);
         if (wanted == current)
             return;
 
-        // Where the fingers are, in diagram coordinates, before the zoom changes.
+        zoomTo(wanted, current, event.x, event.y);
+    }
+
+    /**
+     * Sets the zoom while keeping the diagram point under (x, y) under (x, y).
+     *
+     * Without this the drawing slides out from under the gesture and reads as dragging rather than
+     * scaling. Shared by the pinch and the Ctrl+wheel paths so both feel the same.
+     */
+    private void zoomTo(double wanted, double current, int x, int y) {
         Viewport viewport = canvas.getViewport();
         Point view = viewport.getViewLocation();
-        double anchorX = (view.x + event.x) / current;
-        double anchorY = (view.y + event.y) / current;
+        double anchorX = (view.x + x) / current;
+        double anchorY = (view.y + y) / current;
 
         zoomManager.setZoom(wanted);
-
-        // Put that same diagram point back under the fingers afterwards.
-        zoomManager.setViewLocation(new Point((int) Math.round(anchorX * wanted - event.x),
-                (int) Math.round(anchorY * wanted - event.y)));
+        zoomManager.setViewLocation(new Point((int) Math.round(anchorX * wanted - x),
+                (int) Math.round(anchorY * wanted - y)));
     }
 
     /** Two-finger pan: scroll the viewport, leaving the zoom alone. */
