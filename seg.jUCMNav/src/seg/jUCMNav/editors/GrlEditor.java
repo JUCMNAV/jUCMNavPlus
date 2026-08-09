@@ -24,7 +24,7 @@ import urncore.IURNDiagram;
 /**
  * This is the main class for editing a single GRLGraph in our model.
  * 
- * @author Jean-François Roy
+ * @author Jean-Franï¿½ois Roy
  */
 
 public class GrlEditor extends UrnEditor {
@@ -63,6 +63,10 @@ public class GrlEditor extends UrnEditor {
         root.getZoomManager().setZoomLevelContributions(zoomLevels);
 
         viewer.setRootEditPart(root);
+
+        // Spike: pinch to zoom, two-finger pan. Additive -- does nothing where the window
+        // system delivers no gestures, and Ctrl+scroll is unaffected. See CanvasGestures.
+        CanvasGestures.attach(viewer, root.getZoomManager());
 
         registerContextMenuProvider(viewer);
 
